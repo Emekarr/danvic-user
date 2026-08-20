@@ -17,7 +17,7 @@ import {
   Volume2,
 } from 'lucide-react'
 import { CompleteModuleButton } from './course-participation'
-import { StaticRouteLink } from './static-route-link'
+import { courseHref } from '@/lib/course-route'
 
 type AttachmentKind = 'image' | 'video' | 'audio' | 'link' | 'file'
 
@@ -73,7 +73,9 @@ function Resources({
             const external = kind === 'link' || kind === 'file'
             const fileName = attachment.attachmentPath.split('/').at(-1)?.split('?')[0] ?? ''
             const name = attachment.fileName || `${resourceLabel(kind)} material ${index + 1}`
-            const href = external ? attachment.attachmentPath : `/courses/${courseId}/attachments/${attachment.id}`
+            const href = external
+              ? attachment.attachmentPath
+              : courseHref(courseId, 'attachment', attachment.id)
             return (
               <li key={attachment.id}>
                 {external ? (
@@ -120,9 +122,9 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
     <main className="lr-study-player">
       <header className="lr-study-player-head">
         <div className="lr-study-course-heading">
-          <StaticRouteLink href={`/courses/${course.id}`} className="sb-button sb-button--ghost sb-button--sm">
+          <Link href={courseHref(course.id)} className="sb-button sb-button--ghost sb-button--sm">
             <ChevronLeft aria-hidden="true" /> Back to course
-          </StaticRouteLink>
+          </Link>
           <h1>{course.name}</h1>
         </div>
         <div className="lr-study-player-actions">

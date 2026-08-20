@@ -7,7 +7,7 @@ import { Badge, Brand, Card } from '@danvic/ui'
 import { BookOpen, CalendarClock, CheckCircle2, Clock3, ShieldCheck } from 'lucide-react'
 import { CourseSearch } from '@/components/course-search'
 import { CourseCover } from '@/components/course-cover-display'
-import { StaticRouteLink } from '@/components/static-route-link'
+import { courseHref } from '@/lib/course-route'
 
 export function HomeLanding() {
   const [courses, setCourses] = useState<CatalogCourse[]>([])
@@ -116,13 +116,13 @@ export function HomeLanding() {
                         <CheckCircle2 aria-hidden="true" /> Available
                       </span>
                     </div>
-                    <StaticRouteLink
-                      href={`/courses/${course.id}`}
+                    <Link
+                      href={courseHref(course.id)}
                       className="sb-button sb-button--secondary sb-button--sm"
                       style={{ width: '100%', marginTop: 16 }}
                     >
                       Open course
-                    </StaticRouteLink>
+                    </Link>
                   </div>
                 </Card>
               ))}

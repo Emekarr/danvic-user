@@ -9,6 +9,7 @@ import { CalendarClock, CheckCircle2, Clock3, Search, UserRound } from 'lucide-r
 import { CourseCover } from './course-cover-display'
 import { CourseBookmarkButton, EnrollButton, PaidEnrollButton } from './course-participation'
 import { StaticRouteLink } from './static-route-link'
+import { courseHref } from '@/lib/course-route'
 
 export function CatalogCourseList({
   initialCourses,
@@ -106,7 +107,7 @@ export function CatalogCourseList({
                 <StaticRouteLink href={`/authors/${course.createdByAuthorId}`} className="lr-author-link">
                   <UserRound aria-hidden="true" /> {course.authorName}
                 </StaticRouteLink>
-                <StaticRouteLink href={`/courses/${course.id}`} className="sb-button sb-button--secondary sb-button--md">View course</StaticRouteLink>
+                <Link href={courseHref(course.id)} className="sb-button sb-button--secondary sb-button--md">View course</Link>
                 {enrolled.has(course.id) ? (
                   <span className="lr-enrolled-badge"><CheckCircle2 aria-hidden="true" /> Enrolled</span>
                 ) : upcomingLive && canEnroll ? (
@@ -123,11 +124,11 @@ export function CatalogCourseList({
                     }
                   />
                 ) : upcomingLive ? (
-                  <Link href={`/login?next=${encodeURIComponent(`/courses/${course.id}`)}`} className="sb-button sb-button--primary sb-button--md">Sign in to bookmark</Link>
+                  <Link href={`/login?next=${encodeURIComponent(courseHref(course.id))}`} className="sb-button sb-button--primary sb-button--md">Sign in to bookmark</Link>
                 ) : canEnroll ? (
                   course.accessType === 'paid' ? <PaidEnrollButton courseId={course.id} priceKobo={course.priceKobo} /> : <EnrollButton courseId={course.id} />
                 ) : (
-                  <Link href={`/login?next=${encodeURIComponent(`/courses/${course.id}`)}`} className="sb-button sb-button--primary sb-button--md">Enroll</Link>
+                  <Link href={`/login?next=${encodeURIComponent(courseHref(course.id))}`} className="sb-button sb-button--primary sb-button--md">Enroll</Link>
                 )}
               </div>
             </article>

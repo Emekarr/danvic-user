@@ -56,6 +56,7 @@ import {
   useLiveSession,
   useRecordings,
 } from '@/lib/data'
+import { courseHref, type CoursePageView } from '@/lib/course-route'
 import styles from '@/components/author-detail.module.css'
 
 const StudentLiveClassroom = dynamic(
@@ -127,6 +128,7 @@ export function CourseView({ courseId }: { courseId: string }) {
         .catch(() => false)
       let aggregate: StudentCourseAggregate | null = null
       let aggregateCode = ''
+      let aggregateMessage = ''
       if (signedIn) {
         try {
           aggregate = await apiFetch<StudentCourseAggregate>(
@@ -134,6 +136,8 @@ export function CourseView({ courseId }: { courseId: string }) {
           )
         } catch (cause) {
           aggregateCode = (cause as { code?: string }).code ?? ''
+          aggregateMessage =
+            cause instanceof Error ? cause.message : 'The enrolled course could not be loaded.'
         }
       }
       if (!active) return
@@ -162,6 +166,27 @@ export function CourseView({ courseId }: { courseId: string }) {
           bookmarked: false,
           upcomingLive: false,
           message: '',
+          scheduled: false,
+        })
+        return
+      }
+      if (
+        signedIn &&
+        aggregateCode !== 'ENROLLMENT_REQUIRED' &&
+        aggregateCode !== 'COURSE_NOT_AVAILABLE'
+      ) {
+        setState({
+          phase: 'unavailable',
+          aggregate: null,
+          session: null,
+          recordings: [],
+          finalAssessment: null,
+          preview: null,
+          canEnroll: false,
+          canBookmark: false,
+          bookmarked: false,
+          upcomingLive: false,
+          message: aggregateMessage,
           scheduled: false,
         })
         return
@@ -278,29 +303,29 @@ export function CourseView({ courseId }: { courseId: string }) {
                   </svg>
                   <span>{progressPercent}%</span>
                 </span>
-                <StaticRouteLink
-                  href={`/courses/${course.id}/study`}
+                <Link
+                  href={courseHref(course.id, 'study')}
                   className="sb-button sb-button--primary sb-button--md"
                 >
                   Resume studying
-                </StaticRouteLink>
+                </Link>
                 {state.session?.status === 'live' ? (
-                  <StaticRouteLink
-                    href={`/courses/${course.id}/live`}
+                  <Link
+                    href={courseHref(course.id, 'live')}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="sb-button sb-button--primary sb-button--md"
                   >
                     <Radio /> Join live class
-                  </StaticRouteLink>
+                  </Link>
                 ) : null}
                 {state.recordings.length ? (
-                  <StaticRouteLink
-                    href={`/courses/${course.id}/recordings`}
+                  <Link
+                    href={courseHref(course.id, 'recordings')}
                     className="sb-button sb-button--secondary sb-button--md"
                   >
                     <Play /> View recordings
-                  </StaticRouteLink>
+                  </Link>
                 ) : null}
               </>
             }
@@ -440,7 +465,7 @@ export function CourseView({ courseId }: { courseId: string }) {
                 />
               ) : upcomingLive ? (
                 <Link
-                  href={`/login?next=${encodeURIComponent(`/courses/${course.id}`)}`}
+                  href={`/login?next=${encodeURIComponent(courseHref(course.id))}`}
                   className="sb-button sb-button--primary sb-button--md"
                 >
                   Sign in to bookmark
@@ -453,7 +478,7 @@ export function CourseView({ courseId }: { courseId: string }) {
                 )
               ) : (
                 <Link
-                  href={`/login?next=${encodeURIComponent(`/courses/${course.id}`)}`}
+                  href={`/login?next=${encodeURIComponent(courseHref(course.id))}`}
                   className="sb-button sb-button--primary sb-button--md"
                 >
                   Sign in to enroll
@@ -500,7 +525,7 @@ export function StudyView({ courseId }: { courseId: string }) {
   const router = useRouter()
   const { data, loading, error } = useCourseAggregate(courseId)
   useEffect(() => {
-    if (error) router.replace(`/courses/${encodeURIComponent(courseId)}`)
+    if (error) router.replace(courseHref(courseId))
   }, [error, router, courseId])
   if (loading) return <p className="ad-empty-line">Loading your course…</p>
   if (error || !data)
@@ -517,7 +542,7 @@ export function LiveView({ courseId }: { courseId: string }) {
   const { data, loading, error } = useLiveSession(courseId)
   useEffect(() => {
     if (error || !data?.session || data.session.status !== 'live')
-      router.replace(`/courses/${encodeURIComponent(courseId)}`)
+      router.replace(courseHref(courseId))
   }, [error, data, router, courseId])
   if (loading) return <p className="ad-empty-line">Checking the live session…</p>
   if (error || !data?.session)
@@ -552,12 +577,12 @@ export function RecordingsView({ courseId }: { courseId: string }) {
           title="Class recordings"
           description="Each start/stop interval is listed separately. Playback is enrollment-gated and view-only."
           actions={
-            <StaticRouteLink
-              href={`/courses/${courseId}`}
+            <Link
+              href={courseHref(courseId)}
               className="sb-button sb-button--ghost sb-button--md"
             >
               Back to course
-            </StaticRouteLink>
+            </Link>
           }
         />
         <div className="sb-module-list">
@@ -588,12 +613,12 @@ export function RecordingsView({ courseId }: { courseId: string }) {
                 </span>
               </div>
               {recording.status === 'ready' ? (
-                <StaticRouteLink
-                  href={`/courses/${courseId}/recordings/${recording.id}`}
+                <Link
+                  href={courseHref(courseId, 'recording', recording.id)}
                   className="sb-button sb-button--primary sb-button--md"
                 >
                   <Play /> Watch
-                </StaticRouteLink>
+                </Link>
               ) : null}
             </Card>
           ))}
@@ -623,12 +648,12 @@ export function PlaybackView({
           title="Class recording"
           description="Streaming access is short-lived and the player does not expose a download action."
           actions={
-            <StaticRouteLink
-              href={`/courses/${courseId}/recordings`}
+            <Link
+              href={courseHref(courseId, 'recordings')}
               className="sb-button sb-button--ghost sb-button--md"
             >
               Back to recordings
-            </StaticRouteLink>
+            </Link>
           }
         />
         <ViewOnlyPlayer
@@ -654,12 +679,12 @@ export function AttachmentView({
           title="Course attachment"
           description="This attachment is displayed inside the course viewer without a download control."
           actions={
-            <StaticRouteLink
-              href={`/courses/${courseId}`}
+            <Link
+              href={courseHref(courseId)}
               className="sb-button sb-button--ghost sb-button--md"
             >
               Back to course
-            </StaticRouteLink>
+            </Link>
           }
         />
         <ViewOnlyPlayer
@@ -1051,9 +1076,9 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
                     <h2>Course</h2>
                     <p>The DANVIC course this certificate was issued for.</p>
                   </div>
-                  <StaticRouteLink href={`/courses/${owned.course.id}`} className="lr-row-action">
+                  <Link href={courseHref(owned.course.id)} className="lr-row-action">
                     View course <ArrowRight aria-hidden="true" />
-                  </StaticRouteLink>
+                  </Link>
                 </div>
                 <div className="sb-course-meta">
                   <span>{owned.course.type === 'live' ? 'Live course' : 'Premade course'}</span>
@@ -1297,9 +1322,9 @@ export function AuthorView({ authorId }: { authorId: string }) {
                   {courses.map((course) => (
                     <tr key={course.id}>
                       <td>
-                        <StaticRouteLink className="ad-table-link" href={`/courses/${course.id}`}>
+                        <Link className="ad-table-link" href={courseHref(course.id)}>
                           {course.name}
-                        </StaticRouteLink>
+                        </Link>
                       </td>
                       <td>{course.type === 'live' ? 'Live' : 'Premade'}</td>
                       <td>
@@ -1326,28 +1351,49 @@ export function AuthorView({ authorId }: { authorId: string }) {
   )
 }
 
+export function CourseRouteView() {
+  const query = useSearchParams()
+  const courseId = query.get('courseId')?.trim() ?? ''
+  const view = (query.get('view') ?? 'details') as CoursePageView
+
+  if (!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(courseId)) {
+    return (
+      <LearnerAppShell>
+        <EmptyState
+          icon={<BookOpen aria-hidden="true" />}
+          title="Course ID required"
+          description="Open a course from your enrolled courses or enter its 26-character course ID."
+        />
+      </LearnerAppShell>
+    )
+  }
+
+  if (view === 'details') return <CourseView courseId={courseId} />
+  if (view === 'study') return <StudyView courseId={courseId} />
+  if (view === 'live') return <LiveView courseId={courseId} />
+  if (view === 'recordings') return <RecordingsView courseId={courseId} />
+  if (view === 'recording') {
+    const recordingId = query.get('recordingId')?.trim() ?? ''
+    if (recordingId) return <PlaybackView courseId={courseId} recordingId={recordingId} />
+  }
+  if (view === 'attachment') {
+    const attachmentId = query.get('attachmentId')?.trim() ?? ''
+    if (attachmentId) return <AttachmentView courseId={courseId} attachmentId={attachmentId} />
+  }
+
+  return (
+    <LearnerAppShell>
+      <EmptyState
+        icon={<BookOpen aria-hidden="true" />}
+        title="Course page not found"
+        description="The requested course view is invalid. Return to your enrolled courses and try again."
+      />
+    </LearnerAppShell>
+  )
+}
+
 export function CatchAllViews() {
   const pathname = usePathname().replace(/\/+$/, '') || '/'
-
-  const course = pathname.match(/^\/courses\/([^/]+)$/)
-  if (course) return <CourseView courseId={course[1] ?? ''} />
-
-  const study = pathname.match(/^\/courses\/([^/]+)\/study$/)
-  if (study) return <StudyView courseId={study[1] ?? ''} />
-
-  const live = pathname.match(/^\/courses\/([^/]+)\/live$/)
-  if (live) return <LiveView courseId={live[1] ?? ''} />
-
-  const recordings = pathname.match(/^\/courses\/([^/]+)\/recordings$/)
-  if (recordings) return <RecordingsView courseId={recordings[1] ?? ''} />
-
-  const playback = pathname.match(/^\/courses\/([^/]+)\/recordings\/([^/]+)$/)
-  if (playback)
-    return <PlaybackView courseId={playback[1] ?? ''} recordingId={playback[2] ?? ''} />
-
-  const attachment = pathname.match(/^\/courses\/([^/]+)\/attachments\/([^/]+)$/)
-  if (attachment)
-    return <AttachmentView courseId={attachment[1] ?? ''} attachmentId={attachment[2] ?? ''} />
 
   const demoAttachment = pathname.match(/^\/demo\/attachments\/([^/]+)$/)
   if (demoAttachment) return <DemoAttachmentView />

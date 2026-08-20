@@ -7,6 +7,7 @@ import {
   paystackReferenceSchema,
   type VerifiedCoursePayment,
 } from '@danvic/api-client'
+import { courseHref } from '@/lib/course-route'
 
 export function PaymentCallback() {
   const query = useSearchParams()
@@ -41,7 +42,7 @@ export function PaymentCallback() {
           return
         }
         window.location.replace(
-          `/courses/${encodeURIComponent(result.courseId)}?payment=success`,
+          `${courseHref(result.courseId)}&payment=success`,
         )
       })
       .catch(() => {

@@ -11,6 +11,7 @@ import {
 import { Button, FormMessage } from '@danvic/ui'
 import { Bell, BellOff, CheckCircle2, CreditCard, UserPlus, WalletCards, X } from 'lucide-react'
 import { CardBrandMark } from './card-brand-mark'
+import { courseHref } from '@/lib/course-route'
 
 export function PaidEnrollButton({ courseId, priceKobo }: { courseId: string; priceKobo: number }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -37,7 +38,7 @@ export function PaidEnrollButton({ courseId, priceKobo }: { courseId: string; pr
         },
       )
       if (payment.status === 'success') {
-        window.location.replace(`/courses/${courseId}?payment=success`)
+        window.location.replace(`${courseHref(courseId)}&payment=success`)
         return
       }
       window.location.assign(payment.authorizationUrl)
@@ -161,7 +162,7 @@ export function EnrollButton({ courseId }: { courseId: string }) {
           setError('')
           try {
             await apiFetch(`/api/courses/${courseId}/enroll`, { method: 'POST', body: '{}' })
-            window.location.replace(`/courses/${courseId}`)
+            window.location.replace(courseHref(courseId))
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Enrollment failed')
           } finally {
@@ -251,7 +252,7 @@ export function CompleteModuleButton({
               },
             )
             if (result.courseCompleted) {
-              window.location.replace(`/courses/${courseId}`)
+              window.location.replace(courseHref(courseId))
               return
             }
             window.location.reload()

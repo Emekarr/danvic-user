@@ -17,6 +17,7 @@ import {
 } from '@danvic/ui'
 import { BookOpen, CheckCircle2, KeyRound, ShieldCheck } from 'lucide-react'
 import styles from './auth-layout.module.css'
+import { courseHref } from '@/lib/course-route'
 
 const features = [
   { icon: ShieldCheck, label: 'Invitation-only enrollment' },
@@ -291,7 +292,7 @@ export function AcceptExistingInvitation({ token }: { token: string }) {
                   '/api/invitations/accept-existing',
                   { method: 'POST', body: JSON.stringify({ token }) },
                 )
-                router.push(result.courseId ? `/courses/${result.courseId}` : '/dashboard')
+                router.push(result.courseId ? courseHref(result.courseId) : '/dashboard')
                 router.refresh()
               } catch (cause) {
                 setError(

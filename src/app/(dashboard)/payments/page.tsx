@@ -7,7 +7,8 @@ import { useEnrollments, usePayments } from '@/lib/data'
 import { SavedCards } from '@/components/payment-center'
 import { CardBrandMark } from '@/components/card-brand-mark'
 import { TransactionReference } from '@/components/transaction-reference'
-import { StaticRouteLink } from '@/components/static-route-link'
+import Link from 'next/link'
+import { courseHref } from '@/lib/course-route'
 
 export default function Page() {
   return (
@@ -102,12 +103,12 @@ function PaymentsPage() {
                   </td>
                   <td>
                     {transaction.courseId ? (
-                      <StaticRouteLink
-                        href={`/courses/${encodeURIComponent(transaction.courseId)}`}
+                      <Link
+                        href={courseHref(transaction.courseId)}
                         className="sb-cell-link"
                       >
                         {courseNames.get(transaction.courseId) ?? transaction.courseId}
-                      </StaticRouteLink>
+                      </Link>
                     ) : (
                       'Saved-card verification'
                     )}

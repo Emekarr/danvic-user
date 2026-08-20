@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Button, Input } from '@danvic/ui'
 import { ArrowRight } from 'lucide-react'
+import { courseHref } from '@/lib/course-route'
 
 export function CourseSearch() {
   const router = useRouter()
@@ -12,7 +13,7 @@ export function CourseSearch() {
       onSubmit={(event) => {
         event.preventDefault()
         const data = new FormData(event.currentTarget)
-        router.push(`/courses/${encodeURIComponent(String(data.get('courseId') ?? '').trim())}`)
+        router.push(courseHref(String(data.get('courseId') ?? '').trim()))
       }}
     >
       <Input

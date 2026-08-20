@@ -5,7 +5,8 @@ import type { StudentEnrollmentSummary } from '@danvic/api-client'
 import { Badge, Input } from '@danvic/ui'
 import { ArrowRight, Clock3, Search } from 'lucide-react'
 import { CourseCover } from './course-cover-display'
-import { StaticRouteLink } from './static-route-link'
+import Link from 'next/link'
+import { courseHref } from '@/lib/course-route'
 
 export function EnrolledCourseList({ items }: { items: StudentEnrollmentSummary[] }) {
   const [query, setQuery] = useState('')
@@ -52,9 +53,9 @@ export function EnrolledCourseList({ items }: { items: StudentEnrollmentSummary[
                     <span className="lr-course-card-access">
                       {item.course.accessType === 'paid' ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(item.course.priceKobo / 100) : 'Free'}
                     </span>
-                    <StaticRouteLink className="lr-row-action" href={`/courses/${item.course.id}`} aria-label={`${item.enrollment.completedAt ? 'Review' : 'Continue'} ${item.course.name}`}>
+                    <Link className="lr-row-action" href={courseHref(item.course.id)} aria-label={`${item.enrollment.completedAt ? 'Review' : 'Continue'} ${item.course.name}`}>
                       {item.enrollment.completedAt ? 'Review' : 'Continue'} <ArrowRight aria-hidden="true" />
-                    </StaticRouteLink>
+                    </Link>
                   </div>
                 </div>
               </article>
