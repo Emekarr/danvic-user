@@ -97,7 +97,7 @@ export function TwoFactorForm({
   const [secret, setSecret] = useState('')
   useEffect(() => {
     if (!setup) return
-    void apiFetch<{ qrCodeDataUrl: string; secret: string }>('/api/auth/two-factor/setup', {
+    void apiFetch<{ qrCodeDataUrl: string; secret: string }>('/api/auth/2fa/setup', {
       method: 'POST',
       body: '{}',
     })
@@ -126,7 +126,7 @@ export function TwoFactorForm({
           const data = new FormData(event.currentTarget)
           try {
             const result = await apiFetch<{ next: string }>(
-              setup ? '/api/auth/two-factor/confirm' : '/api/auth/two-factor/verify',
+              setup ? '/api/auth/2fa/confirm' : '/api/auth/2fa/verify',
               { method: 'POST', body: JSON.stringify({ code: data.get('code') }) },
             )
             router.push(returnTo ?? result.next)

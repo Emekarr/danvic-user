@@ -1,0 +1,1324 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
+import Link from 'next/link'
+import { notFound, usePathname, useRouter, useSearchParams } from 'next/navigation'
+import {
+  apiFetch,
+  certificateNumberSchema,
+  type Assessment,
+  type Certificate,
+  type CoursePreview,
+  type LiveRecording,
+  type LiveSession,
+  type StudentCourseAggregate,
+  type StudentEnrollmentSummary,
+} from '@danvic/api-client'
+import { Badge, Card, EmptyState, PageHeader } from '@danvic/ui'
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  CalendarCheck,
+  CalendarClock,
+  CheckCircle2,
+  Clock3,
+  Download,
+  LockKeyhole,
+  MessageSquareText,
+  Play,
+  Radio,
+  ShieldCheck,
+  ShieldX,
+  Star,
+  Video,
+} from 'lucide-react'
+import { CourseStudyPlayer } from '@/components/course-study-player'
+import { ViewOnlyPlayer } from '@/components/view-only-player'
+import { AssessmentPlayer, StartAssessmentButton } from '@/components/assessment-player'
+import { AuthorRating } from '@/components/author-rating'
+import { EnrollButton, PaidEnrollButton } from '@/components/course-participation'
+import { CertificateActions } from '@/components/certificate-actions'
+import { CourseCover } from '@/components/course-cover-display'
+import { LearnerAppShell } from '@/components/learner-app-shell'
+import {
+  useAssessment,
+  useAssessmentAttempt,
+  useAuthorProfile,
+  useCertificate,
+  useCourseAggregate,
+  useLiveSession,
+  useRecordings,
+} from '@/lib/data'
+import styles from '@/components/author-detail.module.css'
+
+const StudentLiveClassroom = dynamic(
+  () =>
+    import('@/components/student-live-classroom').then((module) => module.StudentLiveClassroom),
+  {
+    ssr: false,
+    loading: () => <p className="ad-empty-line">Joining the live classroom…</p>,
+  },
+)
+
+const WebRecorder = dynamic(
+  () => import('@/components/web-recorder').then((module) => module.WebRecorder),
+  {
+    ssr: false,
+    loading: () => <p className="ad-empty-line">Preparing the recorder…</p>,
+  },
+)
+
+const formatNaira = (amountKobo: number) =>
+  new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amountKobo / 100)
+
+const formatDuration = (seconds: number | null) => {
+  if (!seconds) return 'Duration pending'
+  const hours = Math.floor(seconds / 3600),
+    minutes = Math.floor((seconds % 3600) / 60),
+    rest = seconds % 60
+  return [hours, minutes, rest]
+    .filter((_, index) => index > 0 || hours > 0)
+    .map((part) => String(part).padStart(2, '0'))
+    .join(':')
+}
+
+export function CourseView({ courseId }: { courseId: string }) {
+  const query = useSearchParams()
+  const paymentSucceeded = query.get('payment') === 'success'
+  const [state, setState] = useState<{
+    phase: 'loading' | 'participating' | 'preview' | 'unavailable'
+    aggregate: StudentCourseAggregate | null
+    session: LiveSession | null
+    recordings: LiveRecording[]
+    finalAssessment: Assessment | null
+    preview: CoursePreview | null
+    canEnroll: boolean
+    message: string
+    scheduled: boolean
+  }>({
+    phase: 'loading',
+    aggregate: null,
+    session: null,
+    recordings: [],
+    finalAssessment: null,
+    preview: null,
+    canEnroll: false,
+    message: '',
+    scheduled: false,
+  })
+  useEffect(() => {
+    let active = true
+    void (async () => {
+      const signedIn = await apiFetch<{ student: { id: string } }>('/api/auth/me')
+        .then(() => true)
+        .catch(() => false)
+      let aggregate: StudentCourseAggregate | null = null
+      let aggregateCode = ''
+      if (signedIn) {
+        try {
+          aggregate = await apiFetch<StudentCourseAggregate>(
+            `/api/courses/${encodeURIComponent(courseId)}`,
+          )
+        } catch (cause) {
+          aggregateCode = (cause as { code?: string }).code ?? ''
+        }
+      }
+      if (!active) return
+      if (aggregate) {
+        const [sessionValue, recordingsValue, assessmentsValue] = await Promise.all([
+          apiFetch<{ session: LiveSession | null }>(
+            `/api/live/courses/${encodeURIComponent(courseId)}/live-session`,
+          ).catch(() => null),
+          apiFetch<{ recordings: LiveRecording[] }>(
+            `/api/live/courses/${encodeURIComponent(courseId)}/recordings`,
+          ).catch(() => null),
+          apiFetch<{ assessments: Assessment[] }>('/api/assessments').catch(() => null),
+        ])
+        if (!active) return
+        setState({
+          phase: 'participating',
+          aggregate,
+          session: sessionValue?.session ?? null,
+          recordings: recordingsValue?.recordings ?? [],
+          finalAssessment:
+            (assessmentsValue?.assessments ?? []).find((item) => item.courseId === courseId) ??
+            null,
+          preview: null,
+          canEnroll: false,
+          message: '',
+          scheduled: false,
+        })
+        return
+      }
+      try {
+        const preview = await apiFetch<CoursePreview>(
+          `/api/catalog/courses/${encodeURIComponent(courseId)}`,
+        )
+        if (active)
+          setState({
+            phase: 'preview',
+            aggregate: null,
+            session: null,
+            recordings: [],
+            finalAssessment: null,
+            preview,
+            canEnroll: signedIn && aggregateCode === 'ENROLLMENT_REQUIRED',
+            message: '',
+            scheduled: false,
+          })
+      } catch (cause) {
+        if (active)
+          setState({
+            phase: 'unavailable',
+            aggregate: null,
+            session: null,
+            recordings: [],
+            finalAssessment: null,
+            preview: null,
+            canEnroll: false,
+            message: cause instanceof Error ? cause.message : 'The course could not be loaded.',
+            scheduled: (cause as { code?: string }).code === 'COURSE_NOT_AVAILABLE',
+          })
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [courseId])
+
+  if (state.phase === 'loading')
+    return (
+      <LearnerAppShell>
+        <p className="ad-empty-line">Loading the course…</p>
+      </LearnerAppShell>
+    )
+
+  if (state.phase === 'participating' && state.aggregate) {
+    const value = state.aggregate
+    const { course, modules, completedModuleIds, enrollment } = value
+    const completed = new Set(completedModuleIds)
+    const modulesComplete =
+      modules.length === 0 || modules.every((module) => completed.has(module.id))
+    const progressPercent = enrollment.completedAt
+      ? 100
+      : modules.length
+        ? Math.round((completed.size / modules.length) * 100)
+        : 0
+    return (
+      <LearnerAppShell>
+        <div>
+          {paymentSucceeded ? (
+            <Card style={{ marginBottom: 20 }}>
+              <div className="sb-card-body">
+                <Badge tone="green" dot>
+                  Payment verified
+                </Badge>
+                <p style={{ marginTop: 10 }}>Your course access is now active.</p>
+              </div>
+            </Card>
+          ) : null}
+          <PageHeader
+            eyebrow={course.type === 'live' ? 'Live course' : 'Premade course'}
+            title={course.name}
+            description={`${course.durationMinutes} minutes of structured learning.`}
+            actions={
+              <>
+                <Badge tone={course.type === 'live' ? 'violet' : 'blue'}>{course.type}</Badge>
+                <Badge tone={enrollment.completedAt ? 'green' : 'blue'} dot>
+                  {enrollment.completedAt ? 'Completed' : 'Enrolled'}
+                </Badge>
+                <span
+                  className="lr-course-progress"
+                  aria-label={`${progressPercent}% course progress`}
+                >
+                  <svg viewBox="0 0 36 36" aria-hidden="true">
+                    <circle className="lr-course-progress-track" cx="18" cy="18" r="15.5" />
+                    <circle
+                      className="lr-course-progress-value"
+                      cx="18"
+                      cy="18"
+                      r="15.5"
+                      pathLength="100"
+                      strokeDasharray={`${progressPercent} 100`}
+                    />
+                  </svg>
+                  <span>{progressPercent}%</span>
+                </span>
+                <Link
+                  href={`/courses/${course.id}/study`}
+                  className="sb-button sb-button--primary sb-button--md"
+                >
+                  Resume studying
+                </Link>
+                {state.session?.status === 'live' ? (
+                  <Link
+                    href={`/courses/${course.id}/live`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="sb-button sb-button--primary sb-button--md"
+                  >
+                    <Radio /> Join live class
+                  </Link>
+                ) : null}
+                {state.recordings.length ? (
+                  <Link
+                    href={`/courses/${course.id}/recordings`}
+                    className="sb-button sb-button--secondary sb-button--md"
+                  >
+                    <Play /> View recordings
+                  </Link>
+                ) : null}
+              </>
+            }
+          />
+          <div className="sb-course-meta" style={{ marginBottom: 28 }}>
+            <span>
+              <Clock3 aria-hidden="true" /> {course.durationMinutes} minutes
+            </span>
+            {course.scheduledAt ? (
+              <span>
+                <CalendarClock aria-hidden="true" /> Available since{' '}
+                {new Date(course.scheduledAt).toLocaleString()}
+              </span>
+            ) : null}
+          </div>
+          <CourseCover course={course} className="lr-course-hero-media" />
+          <Link
+            href={`/authors/${course.createdByAuthorId}`}
+            className="lr-author-link lr-author-link--inline"
+          >
+            Meet the course author
+          </Link>
+          {state.finalAssessment && !enrollment.completedAt ? (
+            <Card className="as-course-final">
+              <div>
+                <Badge tone="violet">Final assessment</Badge>
+                <h2>{state.finalAssessment.title}</h2>
+                <p>
+                  {modulesComplete
+                    ? 'You have completed the learning modules. Take this assessment to finalise the course.'
+                    : 'Complete every module to unlock the final assessment.'}
+                </p>
+              </div>
+              {modulesComplete && state.finalAssessment.availability === 'open' ? (
+                <Link
+                  href={`/assessments/${state.finalAssessment.id}`}
+                  className="sb-button sb-button--primary sb-button--md"
+                >
+                  Take final assessment
+                </Link>
+              ) : (
+                <span className="sb-button sb-button--soft sb-button--md" aria-disabled="true">
+                  {!modulesComplete
+                    ? 'Locked'
+                    : state.finalAssessment.availability === 'scheduled'
+                      ? `Opens ${new Date(state.finalAssessment.opensAt).toLocaleString()}`
+                      : 'Assessment closed'}
+                </span>
+              )}
+            </Card>
+          ) : null}
+          {enrollment.completedAt && value.certificate ? (
+            <section className="lr-cert-complete">
+              <div className="lr-cert-complete-head">
+                <span className="lr-cert-complete-icon">
+                  <CheckCircle2 aria-hidden="true" />
+                </span>
+                <div className="lr-cert-complete-heading">
+                  <Badge tone="green">Course completed</Badge>
+                  <h2>You have finished this course</h2>
+                  <p>
+                    {state.finalAssessment
+                      ? 'You completed every course module and the final assessment. Your verified certificate is ready.'
+                      : 'You completed every course module. Your verified certificate is ready.'}
+                  </p>
+                </div>
+              </div>
+              <div className="lr-cert-complete-actions">
+                <CertificateActions certificate={value.certificate} />
+              </div>
+            </section>
+          ) : null}
+          {enrollment.completedAt ? (
+            <AuthorRating courseId={course.id} initialRating={value.authorRating} />
+          ) : null}
+        </div>
+      </LearnerAppShell>
+    )
+  }
+
+  if (state.phase === 'preview' && state.preview) {
+    const { course, modules } = state.preview
+    return (
+      <LearnerAppShell>
+        <div>
+          <PageHeader
+            eyebrow={course.type === 'live' ? 'Live course' : 'Premade course'}
+            title={course.name}
+            description={`${course.durationMinutes} minutes across ${modules.length} module${modules.length === 1 ? '' : 's'}. Explore the outline before enrolling.`}
+            actions={
+              <>
+                <Badge tone={course.type === 'live' ? 'violet' : 'blue'}>{course.type}</Badge>
+                <Badge tone="green" dot>
+                  Available
+                </Badge>
+                <Badge tone={course.accessType === 'paid' ? 'green' : 'blue'}>
+                  {course.accessType === 'paid' ? formatNaira(course.priceKobo) : 'Free'}
+                </Badge>
+              </>
+            }
+          />
+          <div className="sb-course-meta" style={{ marginBottom: 28 }}>
+            <span>
+              <Clock3 aria-hidden="true" /> {course.durationMinutes} minutes
+            </span>
+            {course.scheduledAt ? (
+              <span>
+                <CalendarClock aria-hidden="true" /> Available since{' '}
+                {new Date(course.scheduledAt).toLocaleString()}
+              </span>
+            ) : null}
+          </div>
+          <CourseCover course={course} className="lr-course-hero-media" />
+          <Link
+            href={`/authors/${course.createdByAuthorId}`}
+            className="lr-author-link lr-author-link--inline"
+          >
+            Meet the course author
+          </Link>
+          <Card className="sb-card-body" style={{ marginBottom: 28 }}>
+            <div className="sb-list-row">
+              <div>
+                <h2>Ready to participate?</h2>
+                <p>
+                  {course.accessType === 'paid'
+                    ? 'Complete a secure Paystack payment to unlock this course.'
+                    : 'Sign in and enroll to unlock this free course.'}
+                </p>
+              </div>
+              {state.canEnroll ? (
+                course.accessType === 'paid' ? (
+                  <PaidEnrollButton courseId={course.id} priceKobo={course.priceKobo} />
+                ) : (
+                  <EnrollButton courseId={course.id} />
+                )
+              ) : (
+                <Link
+                  href={`/login?next=${encodeURIComponent(`/courses/${course.id}`)}`}
+                  className="sb-button sb-button--primary sb-button--md"
+                >
+                  Sign in to enroll
+                </Link>
+              )}
+            </div>
+          </Card>
+          <div className="sb-module-list">
+            {modules.map((module, index) => (
+              <Card className="sb-module" key={module.id}>
+                <p className="sb-module-index">Module {index + 1}</p>
+                <h2>{module.title}</h2>
+                <p className="sb-module-content">
+                  <LockKeyhole aria-hidden="true" /> Sign in and enroll to read this module’s
+                  writeup.
+                </p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </LearnerAppShell>
+    )
+  }
+
+  return (
+    <LearnerAppShell>
+      <div>
+        <Card className="sb-empty-state">
+          <span className="sb-empty-icon">
+            {state.scheduled ? <CalendarClock aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}
+          </span>
+          <h3>{state.scheduled ? 'This course is scheduled' : 'Course unavailable'}</h3>
+          <p>{state.message}</p>
+          <Link href="/catalog" className="sb-button sb-button--primary sb-button--md">
+            Return to catalog
+          </Link>
+        </Card>
+      </div>
+    </LearnerAppShell>
+  )
+}
+
+export function StudyView({ courseId }: { courseId: string }) {
+  const router = useRouter()
+  const { data, loading, error } = useCourseAggregate(courseId)
+  useEffect(() => {
+    if (error) router.replace(`/courses/${encodeURIComponent(courseId)}`)
+  }, [error, router, courseId])
+  if (loading) return <p className="ad-empty-line">Loading your course…</p>
+  if (error || !data)
+    return (
+      <p className="ad-empty-line" data-tone="error">
+        {error || 'Could not load your course.'}
+      </p>
+    )
+  return <CourseStudyPlayer value={data} />
+}
+
+export function LiveView({ courseId }: { courseId: string }) {
+  const router = useRouter()
+  const { data, loading, error } = useLiveSession(courseId)
+  useEffect(() => {
+    if (error || !data?.session || data.session.status !== 'live')
+      router.replace(`/courses/${encodeURIComponent(courseId)}`)
+  }, [error, data, router, courseId])
+  if (loading) return <p className="ad-empty-line">Checking the live session…</p>
+  if (error || !data?.session)
+    return (
+      <p className="ad-empty-line" data-tone="error">
+        {error || 'The live session is not available.'}
+      </p>
+    )
+  return <StudentLiveClassroom sessionId={data.session.id} />
+}
+
+export function RecordingsView({ courseId }: { courseId: string }) {
+  const { data, loading, error } = useRecordings(courseId)
+  if (loading)
+    return (
+      <LearnerAppShell>
+        <p className="ad-empty-line">Loading class recordings…</p>
+      </LearnerAppShell>
+    )
+  if (error)
+    return (
+      <LearnerAppShell>
+        <p className="ad-empty-line" data-tone="error">{error}</p>
+      </LearnerAppShell>
+    )
+  const recordings = data ?? []
+  return (
+    <LearnerAppShell>
+      <div>
+        <PageHeader
+          eyebrow="Course library"
+          title="Class recordings"
+          description="Each start/stop interval is listed separately. Playback is enrollment-gated and view-only."
+          actions={
+            <Link
+              href={`/courses/${courseId}`}
+              className="sb-button sb-button--ghost sb-button--md"
+            >
+              Back to course
+            </Link>
+          }
+        />
+        <div className="sb-module-list">
+          {recordings.map((recording) => (
+            <Card className="sb-list-row" key={recording.id}>
+              <div>
+                <div className="sb-page-actions">
+                  <Video />
+                  <h2>Recording {recording.sequence}</h2>
+                  <Badge
+                    tone={
+                      recording.status === 'ready'
+                        ? 'green'
+                        : recording.status === 'failed'
+                          ? 'red'
+                          : 'blue'
+                    }
+                  >
+                    {recording.status}
+                  </Badge>
+                </div>
+                <p>
+                  {new Date(recording.startedAt).toLocaleString()} ·{' '}
+                  {recording.type === 'web' ? 'Full classroom page' : 'Audio only'}
+                </p>
+                <span className="sb-cell-secondary">
+                  <Clock3 /> {formatDuration(recording.durationSeconds)}
+                </span>
+              </div>
+              {recording.status === 'ready' ? (
+                <Link
+                  href={`/courses/${courseId}/recordings/${recording.id}`}
+                  className="sb-button sb-button--primary sb-button--md"
+                >
+                  <Play /> Watch
+                </Link>
+              ) : null}
+            </Card>
+          ))}
+          {!recordings.length ? (
+            <Card className="sb-card-body">
+              <p>No class recordings are available yet.</p>
+            </Card>
+          ) : null}
+        </div>
+      </div>
+    </LearnerAppShell>
+  )
+}
+
+export function PlaybackView({
+  courseId,
+  recordingId,
+}: {
+  courseId: string
+  recordingId: string
+}) {
+  return (
+    <LearnerAppShell>
+      <div>
+        <PageHeader
+          eyebrow="Protected playback"
+          title="Class recording"
+          description="Streaming access is short-lived and the player does not expose a download action."
+          actions={
+            <Link
+              href={`/courses/${courseId}/recordings`}
+              className="sb-button sb-button--ghost sb-button--md"
+            >
+              Back to recordings
+            </Link>
+          }
+        />
+        <ViewOnlyPlayer
+          endpoint={`/api/live/courses/${encodeURIComponent(courseId)}/recordings/${encodeURIComponent(recordingId)}/playback`}
+        />
+      </div>
+    </LearnerAppShell>
+  )
+}
+
+export function AttachmentView({
+  courseId,
+  attachmentId,
+}: {
+  courseId: string
+  attachmentId: string
+}) {
+  return (
+    <LearnerAppShell>
+      <div>
+        <PageHeader
+          eyebrow="Protected material"
+          title="Course attachment"
+          description="This attachment is displayed inside the course viewer without a download control."
+          actions={
+            <Link
+              href={`/courses/${courseId}`}
+              className="sb-button sb-button--ghost sb-button--md"
+            >
+              Back to course
+            </Link>
+          }
+        />
+        <ViewOnlyPlayer
+          endpoint={`/api/courses/${encodeURIComponent(courseId)}/attachments/${encodeURIComponent(attachmentId)}`}
+          media={false}
+        />
+      </div>
+    </LearnerAppShell>
+  )
+}
+
+export function DemoAttachmentView() {
+  notFound()
+  return null
+}
+
+export function RecorderView({ sessionId }: { sessionId: string }) {
+  const query = useSearchParams()
+  const token = query.get('token') ?? ''
+  return <WebRecorder sessionId={sessionId} token={token} />
+}
+
+export function AssessmentStartView({ assessmentId }: { assessmentId: string }) {
+  const router = useRouter()
+  const { data: assessment, loading, error } = useAssessment(assessmentId)
+  useEffect(() => {
+    if (assessment?.attempt && assessment.attempt.status !== 'in_progress')
+      router.replace(`/assessment-attempts/${assessment.attempt.id}`)
+  }, [assessment, router])
+  if (loading) return <p className="ad-empty-line">Loading the assessment…</p>
+  if (error || !assessment)
+    return <p className="ad-empty-line" data-tone="error">{error || 'Could not load the assessment.'}</p>
+  if (assessment.attempt?.status === 'in_progress') {
+    return (
+      <LearnerAppShell>
+        <div>
+          <PageHeader
+            eyebrow="Assessment in progress"
+            title={assessment.title}
+            description={assessment.description}
+            actions={
+              <Badge tone="blue" dot>
+                In progress
+              </Badge>
+            }
+          />
+          <AssessmentPlayer assessment={assessment} attempt={assessment.attempt} />
+        </div>
+      </LearnerAppShell>
+    )
+  }
+  const facts = [
+    { label: 'Time limit', value: `${assessment.durationMinutes} min` },
+    { label: 'Questions', value: `${assessment.questions.length}` },
+    { label: 'Pass mark', value: `${assessment.passingScorePercent}%` },
+    { label: 'Attempts', value: `${assessment.maxAttempts}` },
+  ]
+  return (
+    <LearnerAppShell>
+      <div>
+        <PageHeader
+          eyebrow={assessment.courseId ? 'Course final' : 'Standalone assessment'}
+          title={assessment.title}
+          description={assessment.description}
+        />
+        <dl className="lr-facts">
+          {facts.map((fact) => (
+            <div key={fact.label}>
+              <dt>{fact.label}</dt>
+              <dd>{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+        <section className="lr-begin">
+          <p className="lr-begin-note">
+            The timer starts when you begin and you’ll have {assessment.durationMinutes} minutes to
+            finish. You need {assessment.passingScorePercent}% to pass.
+            {assessment.retrySupported
+              ? ` Failed attempts can be retried up to ${assessment.maxAttempts} total attempts.`
+              : ' This assessment does not allow retries.'}{' '}
+            Written responses may remain pending while the author reviews them.
+          </p>
+          <StartAssessmentButton assessmentId={assessment.id} label="Start assessment" />
+        </section>
+        <p className="lr-window">
+          <CalendarClock aria-hidden="true" /> Available {new Date(assessment.opensAt).toLocaleString()}
+          {' – '}
+          {new Date(assessment.closesAt).toLocaleString()}
+        </p>
+      </div>
+    </LearnerAppShell>
+  )
+}
+
+export function AssessmentAttemptView({ attemptId }: { attemptId: string }) {
+  const { data, loading, error } = useAssessmentAttempt(attemptId)
+  if (loading)
+    return (
+      <LearnerAppShell>
+        <p className="ad-empty-line">Loading your submission…</p>
+      </LearnerAppShell>
+    )
+  if (error || !data)
+    return (
+      <LearnerAppShell>
+        <p className="ad-empty-line" data-tone="error">
+          {error || 'Could not load your submission.'}
+        </p>
+      </LearnerAppShell>
+    )
+  const { assessment, attempt, attemptHistory, attemptsRemaining } = data
+  const pending = attempt.status === 'pending_review'
+  const passed = attempt.passed === true
+  const percentage = attempt.maxScore
+    ? Math.round(((attempt.score ?? 0) / attempt.maxScore) * 100)
+    : 0
+  const canRetry =
+    !pending &&
+    !passed &&
+    assessment.retrySupported &&
+    (attemptsRemaining ?? 0) > 0 &&
+    assessment.availability === 'open'
+  const facts = [
+    { label: 'Score', value: pending ? '—' : `${attempt.score ?? 0} / ${attempt.maxScore}` },
+    { label: 'Percentage', value: pending ? '—' : `${percentage}%` },
+    { label: 'Pass mark', value: `${assessment.passingScorePercent}%` },
+    { label: 'Attempt', value: `${attempt.attemptNumber} of ${assessment.maxAttempts}` },
+  ]
+  return (
+    <LearnerAppShell>
+      <div>
+        <PageHeader
+          eyebrow="Assessment submission"
+          title={assessment.title}
+          description={
+            pending
+              ? 'Your responses were submitted and are awaiting author review.'
+              : 'Your assessment has been marked.'
+          }
+          actions={
+            <Badge tone={pending ? 'amber' : passed ? 'green' : 'red'} dot>
+              {pending ? 'Pending review' : passed ? 'Passed' : 'Failed'}
+            </Badge>
+          }
+        />
+        <dl className="lr-facts">
+          {facts.map((fact) => (
+            <div key={fact.label}>
+              <dt>{fact.label}</dt>
+              <dd>{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+        {canRetry ? (
+          <section className="lr-begin">
+            <p className="lr-begin-note">
+              You still have {attemptsRemaining} attempt{attemptsRemaining === 1 ? '' : 's'} remaining
+              for this assessment.
+            </p>
+            <StartAssessmentButton assessmentId={assessment.id} label="Retry assessment" navigate />
+          </section>
+        ) : null}
+
+        {(attemptHistory?.length ?? 0) > 1 ? (
+          <section className="lr-min-section">
+            <div className="lr-section-heading">
+              <div>
+                <h2>Attempt history</h2>
+                <p>{attemptHistory.length} attempts recorded for this assessment.</p>
+              </div>
+            </div>
+            <div className="lr-min-rows">
+              {attemptHistory.map((item) => (
+                <a
+                  className="lr-min-row"
+                  href={`/assessment-attempts/${item.id}`}
+                  data-current={item.id === attempt.id || undefined}
+                  key={item.id}
+                >
+                  <span className="lr-min-row-copy">
+                    <strong>Attempt {item.attemptNumber}</strong>
+                    <small>
+                      {item.score == null ? 'Awaiting score' : `${item.score}/${item.maxScore}`}
+                    </small>
+                  </span>
+                  <Badge
+                    tone={
+                      item.status === 'pending_review'
+                        ? 'amber'
+                        : item.passed
+                          ? 'green'
+                          : item.status === 'graded'
+                            ? 'red'
+                            : 'blue'
+                    }
+                  >
+                    {item.status === 'pending_review'
+                      ? 'pending review'
+                      : item.passed
+                        ? 'passed'
+                        : item.status === 'graded'
+                          ? 'failed'
+                          : item.status.replace('_', ' ')}
+                  </Badge>
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="lr-min-section">
+          <div className="lr-section-heading">
+            <div>
+              <h2>Your responses</h2>
+              <p>
+                {assessment.questions.length} question{assessment.questions.length === 1 ? '' : 's'} with
+                points shown per question.
+              </p>
+            </div>
+          </div>
+          <div className="lr-responses">
+            {assessment.questions.map((question, index) => {
+              const answer = attempt.answers.find((item) => item.questionId === question.id)
+              const correct = !pending && (answer?.awardedPoints ?? 0) >= question.points
+              return (
+                <article className="lr-response" key={question.id}>
+                  <header className="lr-response-head">
+                    <span className="lr-response-num">{index + 1}</span>
+                    <h3>{question.prompt}</h3>
+                    <span className="lr-response-points" data-tone={correct ? 'green' : 'red'}>
+                      {correct ? (
+                        <CheckCircle2 aria-hidden="true" />
+                      ) : (
+                        <span className="lr-response-x" aria-hidden="true">
+                          ×
+                        </span>
+                      )}
+                      {pending ? question.points : `${answer?.awardedPoints ?? 0}/${question.points}`}
+                    </span>
+                  </header>
+                  {question.type === 'multiple_choice' ? (
+                    <ul className="lr-response-options">
+                      {question.options.map((option) => {
+                        const selected = answer?.selectedOptionIds.includes(option.id)
+                        return (
+                          <li key={option.id} data-selected={selected || undefined}>
+                            <span className="lr-response-mark" aria-hidden="true">
+                              {selected ? <CheckCircle2 /> : <span />}
+                            </span>
+                            {option.label}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="lr-response-text">{answer?.text || 'No written response'}</p>
+                  )}
+                  {answer?.feedback ? (
+                    <div className="lr-min-feedback">
+                      <MessageSquareText aria-hidden="true" />
+                      <span>
+                        <strong>Author feedback</strong>
+                        {answer.feedback}
+                      </span>
+                    </div>
+                  ) : null}
+                </article>
+              )
+            })}
+          </div>
+        </section>
+      </div>
+    </LearnerAppShell>
+  )
+}
+
+export function CertificateView({ certificateNumber }: { certificateNumber: string }) {
+  const parsed = certificateNumberSchema.safeParse(certificateNumber)
+  if (!parsed.success) notFound()
+  const number = parsed.data.toUpperCase()
+  const verification = useCertificate(number)
+  const [owned, setOwned] = useState<{
+    certificate: Certificate | null
+    course: NonNullable<StudentEnrollmentSummary['course']> | null
+    finalAssessment: Assessment | null
+    attempt: Assessment['attempt']
+    assessmentHref: string | null
+  }>({ certificate: null, course: null, finalAssessment: null, attempt: null, assessmentHref: null })
+  useEffect(() => {
+    let active = true
+    void (async () => {
+      const signedIn = await apiFetch<{ student: { id: string } }>('/api/auth/me')
+        .then(() => true)
+        .catch(() => false)
+      if (!signedIn) return
+      const [enrollmentsValue, assessmentsValue] = await Promise.all([
+        apiFetch<{ enrollments: StudentEnrollmentSummary[] }>('/api/courses').catch(() => null),
+        apiFetch<{ assessments: Assessment[] }>('/api/assessments').catch(() => null),
+      ])
+      if (!active) return
+      const ownedItem = (enrollmentsValue?.enrollments ?? []).find(
+        (item) => item.certificate?.certificateNumber.toUpperCase() === number,
+      )
+      if (!ownedItem) return
+      const ownedCertificate: Certificate | null = ownedItem.certificate ?? null
+      const course = ownedItem.course ?? null
+      const finalAssessment = ownedCertificate
+        ? (assessmentsValue?.assessments ?? []).find(
+            (item) => item.courseId === ownedCertificate.courseId,
+          ) ?? null
+        : null
+      const attempt = finalAssessment?.attempt ?? null
+      const assessmentHref =
+        attempt && attempt.status !== 'in_progress'
+          ? `/assessment-attempts/${attempt.id}`
+          : finalAssessment
+            ? `/assessments/${finalAssessment.id}`
+            : null
+      setOwned({ certificate: ownedCertificate, course, finalAssessment, attempt, assessmentHref })
+    })()
+    return () => {
+      active = false
+    }
+  }, [number])
+  if (verification.loading)
+    return (
+      <LearnerAppShell>
+        <p className="ad-empty-line">Verifying the certificate…</p>
+      </LearnerAppShell>
+    )
+  const recognized = Boolean(verification.data?.recognized)
+  const valid = Boolean(verification.data?.valid)
+  const certificate = recognized ? verification.data!.certificate : null
+  const pdfPath = `/api/certificate-verification/${encodeURIComponent(number)}/pdf`
+  return (
+    <LearnerAppShell>
+      <div className="lr-certificate-page">
+        <PageHeader
+          eyebrow="Certificate verification"
+          title={recognized ? 'Certificate recognised' : 'Certificate not recognised'}
+          description={
+            recognized
+              ? 'This certificate exists in the DANVIC learning record.'
+              : 'No DANVIC certificate matches this certificate number.'
+          }
+          actions={
+            <>
+              <Badge tone={valid ? 'green' : 'red'} dot>
+                {valid ? 'Valid' : recognized ? 'Revoked' : 'Not recognised'}
+              </Badge>
+              <Link href="/verify-certificate" className="sb-button sb-button--ghost sb-button--md">
+                Verify another
+              </Link>
+            </>
+          }
+        />
+        {certificate ? (
+          <>
+            <section className="lr-cert-summary">
+              <span className="lr-cert-summary-status" data-valid={valid || undefined}>
+                {valid ? <ShieldCheck aria-hidden="true" /> : <ShieldX aria-hidden="true" />}
+              </span>
+              <div>
+                <small>Learner</small>
+                <strong>{certificate.studentName}</strong>
+              </div>
+              <div>
+                <small>Course</small>
+                <strong>{certificate.courseName}</strong>
+              </div>
+              <div>
+                <small>Completed</small>
+                <strong>
+                  {new Date(certificate.completedAt).toLocaleDateString(undefined, {
+                    dateStyle: 'long',
+                  })}
+                </strong>
+              </div>
+              <div>
+                <small>Certificate number</small>
+                <strong>{certificate.certificateNumber}</strong>
+              </div>
+            </section>
+
+            {owned.course ? (
+              <section className="lr-section lr-section--plain">
+                <div className="lr-section-heading">
+                  <div>
+                    <h2>Course</h2>
+                    <p>The DANVIC course this certificate was issued for.</p>
+                  </div>
+                  <Link href={`/courses/${owned.course.id}`} className="lr-row-action">
+                    View course <ArrowRight aria-hidden="true" />
+                  </Link>
+                </div>
+                <div className="sb-course-meta">
+                  <span>{owned.course.type === 'live' ? 'Live course' : 'Premade course'}</span>
+                  <span>
+                    <Clock3 aria-hidden="true" /> {owned.course.durationMinutes} min
+                  </span>
+                  {owned.course.scheduledAt ? (
+                    <span>
+                      <CalendarClock aria-hidden="true" />{' '}
+                      {new Date(owned.course.scheduledAt).toLocaleDateString()}
+                    </span>
+                  ) : null}
+                  <span>
+                    {owned.course.accessType === 'paid'
+                      ? formatNaira(owned.course.priceKobo)
+                      : 'Free'}
+                  </span>
+                </div>
+              </section>
+            ) : null}
+
+            {owned.finalAssessment && owned.assessmentHref ? (
+              <section className="lr-section lr-section--plain">
+                <div className="lr-section-heading">
+                  <div>
+                    <h2>Assessment</h2>
+                    <p>The final assessment completed for this course.</p>
+                  </div>
+                  <Link href={owned.assessmentHref} className="lr-row-action">
+                    {owned.attempt && owned.attempt.status !== 'in_progress'
+                      ? 'Review submission'
+                      : 'Open assessment'}{' '}
+                    <ArrowRight aria-hidden="true" />
+                  </Link>
+                </div>
+                <div className="sb-course-meta">
+                  <span>
+                    <Clock3 aria-hidden="true" /> {owned.finalAssessment.durationMinutes} minutes
+                  </span>
+                  <span>{owned.finalAssessment.passingScorePercent}% pass mark</span>
+                  <span>
+                    {owned.finalAssessment.retrySupported
+                      ? `${owned.finalAssessment.maxAttempts} attempts`
+                      : 'one attempt'}
+                  </span>
+                  {owned.attempt ? (
+                    <Badge
+                      tone={
+                        owned.attempt.passed
+                          ? 'green'
+                          : owned.attempt.status === 'pending_review'
+                            ? 'amber'
+                            : 'red'
+                      }
+                    >
+                      {owned.attempt.passed
+                        ? 'passed'
+                        : owned.attempt.status.replace('_', ' ')}
+                    </Badge>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+
+            <section className="lr-section lr-section--plain">
+              <div className="lr-section-heading">
+                <div>
+                  <h2>Certificate PDF</h2>
+                  <p>The QR code on the document links back to this verified record.</p>
+                </div>
+              </div>
+              {owned.certificate ? (
+                <CertificateActions certificate={owned.certificate} />
+              ) : (
+                <a
+                  href={`${pdfPath}?download=1`}
+                  download
+                  className="sb-button sb-button--primary sb-button--md"
+                >
+                  <Download aria-hidden="true" /> Download PDF
+                </a>
+              )}
+            </section>
+          </>
+        ) : (
+          <EmptyState
+            icon={<ShieldX aria-hidden="true" />}
+            title="We could not verify this number"
+            description="Check the number carefully or scan the QR code printed on the certificate."
+            action={
+              <Link href="/verify-certificate" className="sb-button sb-button--primary sb-button--md">
+                <CalendarCheck aria-hidden="true" /> Try again
+              </Link>
+            }
+          />
+        )}
+      </div>
+    </LearnerAppShell>
+  )
+}
+
+type SocialNetwork = 'linkedin' | 'x' | 'instagram' | 'facebook' | 'website'
+
+const socialIconClasses: Record<SocialNetwork, string> = {
+  linkedin: styles.linkedin!,
+  x: styles.x!,
+  facebook: styles.facebook!,
+  instagram: styles.instagram!,
+  website: styles.website!,
+}
+
+export function AuthorView({ authorId }: { authorId: string }) {
+  const { data, loading, error } = useAuthorProfile(authorId)
+  if (loading)
+    return (
+      <LearnerAppShell>
+        <p className="ad-empty-line">Loading the author profile…</p>
+      </LearnerAppShell>
+    )
+  if (error || !data)
+    return (
+      <LearnerAppShell>
+        <EmptyState
+          icon={<BookOpen aria-hidden="true" />}
+          title="Author unavailable"
+          description={error || 'This author profile could not be found.'}
+          action={
+            <Link href="/catalog" className="sb-button sb-button--primary sb-button--md">
+              Browse courses
+            </Link>
+          }
+        />
+      </LearnerAppShell>
+    )
+  const { author, courses } = data
+  const profileLinks = [
+    { label: 'LinkedIn', href: author.linkedInUrl, network: 'linkedin' },
+    { label: 'X (Twitter)', href: author.xUrl, network: 'x' },
+    { label: 'Facebook', href: author.facebookUrl, network: 'facebook' },
+    { label: 'Instagram', href: author.instagramUrl, network: 'instagram' },
+    { label: 'Personal website', href: author.websiteUrl, network: 'website' },
+  ].filter((link): link is { label: string; href: string; network: SocialNetwork } =>
+    Boolean(link.href),
+  )
+  const { rating } = data
+  return (
+    <LearnerAppShell>
+      <div className={`${styles.page} ad-author-detail-page`}>
+        <Link className="ad-back-link" href="/catalog">
+          <ArrowLeft aria-hidden="true" /> Back to catalog
+        </Link>
+        <PageHeader
+          eyebrow="Author"
+          title={
+            <>
+              {author.firstName} {author.lastName}
+              <span
+                className={styles.rating}
+                title={
+                  rating.count
+                    ? `${rating.average.toFixed(1)} from ${rating.count} rating${rating.count === 1 ? '' : 's'}`
+                    : 'No ratings yet'
+                }
+              >
+                {rating.count ? rating.average.toFixed(1) : '—'} <Star aria-hidden="true" fill="currentColor" />
+                <small>{rating.count ? `(${rating.count})` : 'No ratings yet'}</small>
+              </span>
+            </>
+          }
+          description={`${courses.length} ${courses.length === 1 ? 'course' : 'courses'} available on DANVIC Energy Learning`}
+          actions={
+            <Link className="sb-button sb-button--primary sb-button--md" href="/catalog">
+              All courses
+            </Link>
+          }
+        />
+        <section className="ad-section ad-section--first ad-author-profile">
+          <div className="ad-section-heading">
+            <div>
+              <h2>Author bio</h2>
+            </div>
+          </div>
+          {author.bio ? (
+            <p className={styles.bio}>{author.bio}</p>
+          ) : (
+            <p className="ad-empty-line">This author has not added a bio yet.</p>
+          )}
+          {profileLinks.length ? (
+            <div className={styles.links} aria-label="Author links">
+              {profileLinks.map(({ label, href, network }) => (
+                <a href={href} key={label} target="_blank" rel="noreferrer">
+                  <span className={`${styles.socialIcon} ${socialIconClasses[network]}`} aria-hidden="true" />
+                  {label}
+                </a>
+              ))}
+            </div>
+          ) : null}
+        </section>
+        <section className="ad-section ad-section--first">
+          <div className="ad-section-heading">
+            <div>
+              <h2>Author details</h2>
+            </div>
+          </div>
+          <dl className="ad-details">
+            <div>
+              <dt>Courses created</dt>
+              <dd>{courses.length}</dd>
+            </div>
+            <div>
+              <dt>Average rating</dt>
+              <dd>{rating.count ? `${rating.average.toFixed(1)} / 5` : 'No ratings yet'}</dd>
+            </div>
+            <div>
+              <dt>Ratings received</dt>
+              <dd>{rating.count}</dd>
+            </div>
+          </dl>
+        </section>
+        <section className="ad-section">
+          <div className="ad-section-heading">
+            <div>
+              <h2>Courses</h2>
+              <p>{courses.length} by this author</p>
+            </div>
+          </div>
+          {courses.length ? (
+            <div className="sb-table-wrap">
+              <table className="sb-table">
+                <thead>
+                  <tr>
+                    <th>Course</th>
+                    <th>Type</th>
+                    <th>Price</th>
+                    <th>Duration</th>
+                    <th>Scheduled</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {courses.map((course) => (
+                    <tr key={course.id}>
+                      <td>
+                        <Link className="ad-table-link" href={`/courses/${course.id}`}>
+                          {course.name}
+                        </Link>
+                      </td>
+                      <td>{course.type === 'live' ? 'Live' : 'Premade'}</td>
+                      <td>
+                        {course.accessType === 'paid' ? formatNaira(course.priceKobo) : 'Free'}
+                      </td>
+                      <td>{course.durationMinutes} min</td>
+                      <td>
+                        {course.scheduledAt
+                          ? new Date(course.scheduledAt).toLocaleString('en-NG')
+                          : '-'}
+                      </td>
+                      <td>{new Date(course.createdAt).toLocaleDateString('en-NG')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="ad-empty-line">This author has no courses.</p>
+          )}
+        </section>
+      </div>
+    </LearnerAppShell>
+  )
+}
+
+export function CatchAllViews() {
+  const pathname = usePathname()
+
+  const course = pathname.match(/^\/courses\/([^/]+)$/)
+  if (course) return <CourseView courseId={course[1] ?? ''} />
+
+  const study = pathname.match(/^\/courses\/([^/]+)\/study$/)
+  if (study) return <StudyView courseId={study[1] ?? ''} />
+
+  const live = pathname.match(/^\/courses\/([^/]+)\/live$/)
+  if (live) return <LiveView courseId={live[1] ?? ''} />
+
+  const recordings = pathname.match(/^\/courses\/([^/]+)\/recordings$/)
+  if (recordings) return <RecordingsView courseId={recordings[1] ?? ''} />
+
+  const playback = pathname.match(/^\/courses\/([^/]+)\/recordings\/([^/]+)$/)
+  if (playback)
+    return <PlaybackView courseId={playback[1] ?? ''} recordingId={playback[2] ?? ''} />
+
+  const attachment = pathname.match(/^\/courses\/([^/]+)\/attachments\/([^/]+)$/)
+  if (attachment)
+    return <AttachmentView courseId={attachment[1] ?? ''} attachmentId={attachment[2] ?? ''} />
+
+  const demoAttachment = pathname.match(/^\/demo\/attachments\/([^/]+)$/)
+  if (demoAttachment) return <DemoAttachmentView />
+
+  const recorder = pathname.match(/^\/live-recorder\/([^/]+)$/)
+  if (recorder) return <RecorderView sessionId={recorder[1] ?? ''} />
+
+  const certificate = pathname.match(/^\/certificates\/([^/]+)$/)
+  if (certificate) return <CertificateView certificateNumber={certificate[1] ?? ''} />
+
+  const author = pathname.match(/^\/authors\/([^/]+)$/)
+  if (author) return <AuthorView authorId={author[1] ?? ''} />
+
+  const assessmentStart = pathname.match(/^\/assessments\/([^/]+)$/)
+  if (assessmentStart) return <AssessmentStartView assessmentId={assessmentStart[1] ?? ''} />
+
+  const attempt = pathname.match(/^\/assessment-attempts\/([^/]+)$/)
+  if (attempt) return <AssessmentAttemptView attemptId={attempt[1] ?? ''} />
+
+  notFound()
+}
