@@ -2115,9 +2115,111 @@
   backdrop-filter: blur(2px);
 }
 
+.sb-app-shell[data-kind='learner'] .lr-attachment-dialog {
+  width: min(92vw, 500px);
+  border: 1px solid #e4e9f1;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(16, 24, 40, 0.2), 0 4px 14px rgba(16, 24, 40, 0.08);
+}
+
+.sb-app-shell[data-kind='learner'] .lr-attachment-dialog .lr-dialog-head {
+  align-items: flex-start;
+  padding: 22px 22px 0;
+}
+
+.lr-attachment-dialog-eyebrow {
+  margin: 0 0 4px;
+  color: var(--sb-primary-strong);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.sb-app-shell[data-kind='learner'] .lr-attachment-dialog .lr-dialog-head h2 {
+  max-width: 310px;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.lr-attachment-dialog-cancel {
+  flex: 0 0 auto;
+  margin: -4px -4px 0 12px;
+}
+
+.sb-app-shell[data-kind='learner'] .lr-attachment-dialog .lr-dialog-body {
+  gap: 16px;
+  padding: 18px 22px 22px;
+}
+
+.lr-attachment-dialog-file {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  padding: 12px;
+  border: 1px solid #dce7fb;
+  border-radius: 12px;
+  background: #f7faff;
+}
+
+.lr-attachment-dialog-file > span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #eaf1ff;
+  color: var(--sb-primary-strong);
+}
+
+.lr-attachment-dialog-file svg {
+  width: 18px;
+  height: 18px;
+}
+
+.lr-attachment-dialog-file div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.lr-attachment-dialog-file strong,
+.lr-attachment-dialog-file small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lr-attachment-dialog-file strong {
+  color: var(--sb-foreground);
+  font-size: 13px;
+}
+
+.lr-attachment-dialog-file small {
+  color: var(--sb-muted);
+  font-size: 11px;
+}
+
+.lr-attachment-dialog .lr-dialog-question {
+  color: var(--sb-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.sb-app-shell[data-kind='learner'] .lr-attachment-dialog .lr-dialog-footer {
+  padding: 0 22px 22px;
+}
+
 @media (max-width: 560px) {
   .lr-attachment-dialog {
     width: calc(100vw - 24px);
+  }
+
+  .sb-app-shell[data-kind='learner'] .lr-attachment-dialog .lr-dialog-head,
+  .sb-app-shell[data-kind='learner'] .lr-attachment-dialog .lr-dialog-body,
+  .sb-app-shell[data-kind='learner'] .lr-attachment-dialog .lr-dialog-footer {
+    padding-inline: 16px;
   }
 }
 

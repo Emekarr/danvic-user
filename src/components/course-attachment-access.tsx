@@ -3,7 +3,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { apiFetch } from '@danvic/api-client'
 import { Button, FormMessage } from '@danvic/ui'
-import { Download, ExternalLink, X } from 'lucide-react'
+import { Download, ExternalLink } from 'lucide-react'
 
 type SignedView = { viewUrl: string; fileName?: string }
 type SignedDownload = { downloadUrl: string }
@@ -68,16 +68,25 @@ export function CourseAttachmentAccess({
       <FormMessage>{error}</FormMessage>
       <dialog ref={dialogRef} className="lr-attachment-dialog" aria-labelledby={`attachment-action-${attachmentId}`}>
         <div className="lr-dialog-head">
-          <h2 id={`attachment-action-${attachmentId}`}>Open course material</h2>
-          <Button type="button" variant="ghost" size="icon" aria-label="Close" onClick={close}>
-            <X aria-hidden="true" />
+          <div>
+            <p className="lr-attachment-dialog-eyebrow">Course material</p>
+            <h2 id={`attachment-action-${attachmentId}`}>Choose how to open this file</h2>
+          </div>
+          <Button type="button" variant="ghost" size="sm" className="lr-attachment-dialog-cancel" onClick={close}>
+            Cancel
           </Button>
         </div>
         <div className="lr-dialog-body">
-          <p className="lr-dialog-question">Would you like to view this file in a new tab or download it?</p>
+          <div className="lr-attachment-dialog-file">
+            <span aria-hidden="true">{icon}</span>
+            <div>
+              <strong>{name}</strong>
+              <small>{detail}</small>
+            </div>
+          </div>
+          <p className="lr-dialog-question">Open a secure view in a new tab, or download a copy to your device.</p>
         </div>
         <div className="lr-dialog-footer">
-          <Button type="button" variant="ghost" onClick={close}>Cancel</Button>
           <Button type="button" variant="secondary" onClick={() => void download()}>
             <Download aria-hidden="true" /> Download
           </Button>
