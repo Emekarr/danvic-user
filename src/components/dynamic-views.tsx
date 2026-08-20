@@ -23,14 +23,15 @@ import {
   BookOpen,
   CalendarCheck,
   CalendarClock,
+  Check,
   CheckCircle2,
   Clock3,
+  Copy,
   Download,
   LockKeyhole,
   MessageSquareText,
   Play,
   Radio,
-  ShieldCheck,
   ShieldX,
   Star,
   Video,
@@ -101,6 +102,25 @@ function runningDurationLabel(startedAt: string, now: number) {
   return 'less than a minute'
 }
 
+function CourseProgress({ percent, className }: { percent: number; className: string }) {
+  return (
+    <span className={className} aria-label={`${percent}% course progress`}>
+      <svg viewBox="0 0 36 36" aria-hidden="true">
+        <circle className="lr-course-progress-track" cx="18" cy="18" r="15.5" />
+        <circle
+          className="lr-course-progress-value"
+          cx="18"
+          cy="18"
+          r="15.5"
+          pathLength="100"
+          strokeDasharray={`${percent} 100`}
+        />
+      </svg>
+      <span>{percent}%</span>
+    </span>
+  )
+}
+
 function LiveSessionTiming({ session }: { session: LiveSession }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -121,6 +141,7 @@ function LiveSessionTiming({ session }: { session: LiveSession }) {
 }
 
 export function CourseView({ courseId }: { courseId: string }) {
+  const router = useRouter()
   const query = useSearchParams()
   const paymentSucceeded = query.get('payment') === 'success'
   const [viewer, setViewer] = useState<StudentProfile | null | undefined>(undefined)
@@ -295,7 +316,7 @@ export function CourseView({ courseId }: { courseId: string }) {
         : 0
     return (
       <LearnerAppShell student={viewer ?? null}>
-        <div>
+        <div className="lr-course-detail-page">
           {paymentSucceeded ? (
             <Card style={{ marginBottom: 20 }}>
               <div className="sb-card-body">
@@ -306,6 +327,13 @@ export function CourseView({ courseId }: { courseId: string }) {
               </div>
             </Card>
           ) : null}
+          <button
+            type="button"
+            className="lr-course-mobile-back"
+            onClick={() => (window.history.length > 1 ? router.back() : router.push('/courses'))}
+          >
+            <ArrowLeft aria-hidden="true" /> Back
+          </button>
           <PageHeader
             eyebrow={course.type === 'live' ? 'Live course' : 'Premade course'}
             title={course.name}
@@ -317,26 +345,10 @@ export function CourseView({ courseId }: { courseId: string }) {
                 </span>
                 <span className="lr-course-status">
                   <Badge tone={enrollment.completedAt ? 'green' : 'blue'} dot>
-                    {enrollment.completedAt ? 'Completed' : 'Enrolled'}
+                    {enrollment.completedAt ? 'Completed' : 'In progress'}
                   </Badge>
                 </span>
-                <span
-                  className="lr-course-progress"
-                  aria-label={`${progressPercent}% course progress`}
-                >
-                  <svg viewBox="0 0 36 36" aria-hidden="true">
-                    <circle className="lr-course-progress-track" cx="18" cy="18" r="15.5" />
-                    <circle
-                      className="lr-course-progress-value"
-                      cx="18"
-                      cy="18"
-                      r="15.5"
-                      pathLength="100"
-                      strokeDasharray={`${progressPercent} 100`}
-                    />
-                  </svg>
-                  <span>{progressPercent}%</span>
-                </span>
+                <CourseProgress percent={progressPercent} className="lr-course-progress lr-course-progress--header" />
                 {course.type !== 'live' ? (
                   <Link
                     href={courseHref(course.id, 'study')}
@@ -350,7 +362,7 @@ export function CourseView({ courseId }: { courseId: string }) {
                     href={courseHref(course.id, 'live')}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="sb-button sb-button--primary sb-button--md"
+                    className="sb-button sb-button--primary sb-button--md lr-course-resume"
                   >
                     <Radio /> Join class
                   </Link>
@@ -385,6 +397,7 @@ export function CourseView({ courseId }: { courseId: string }) {
                 {new Date(course.scheduledAt).toLocaleString()}
               </span>
             ) : null}
+            <CourseProgress percent={progressPercent} className="lr-course-progress lr-course-progress--meta" />
           </div>
           <CourseCover course={course} className="lr-course-hero-media" />
           <StaticRouteLink
@@ -1041,6 +1054,29 @@ export function AssessmentAttemptView({ attemptId }: { attemptId: string }) {
   )
 }
 
+function CertificateNumber({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1_500)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <strong className="lr-cert-number">
+      {value}
+      <button type="button" aria-label="Copy certificate number" title="Copy certificate number" onClick={() => void copy()}>
+        {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+      </button>
+    </strong>
+  )
+}
+
 export function CertificateView({ certificateNumber }: { certificateNumber: string }) {
   const parsed = certificateNumberSchema.safeParse(certificateNumber)
   if (!parsed.success) notFound()
@@ -1096,7 +1132,6 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
       </LearnerAppShell>
     )
   const recognized = Boolean(verification.data?.recognized)
-  const valid = Boolean(verification.data?.valid)
   const certificate = recognized ? verification.data!.certificate : null
   const pdfPath = `/api/certificate-verification/${encodeURIComponent(number)}/pdf`
   return (
@@ -1111,29 +1146,25 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
               : 'No DANVIC certificate matches this certificate number.'
           }
           actions={
-            <>
-              <Badge tone={valid ? 'green' : 'red'} dot>
-                {valid ? 'Valid' : recognized ? 'Revoked' : 'Not recognised'}
-              </Badge>
-              <Link href="/verify-certificate" className="sb-button sb-button--ghost sb-button--md">
-                Verify another
-              </Link>
-            </>
+            <Link href="/verify-certificate" className="sb-button sb-button--ghost sb-button--md lr-cert-verify-another">
+              Verify another
+            </Link>
           }
         />
         {certificate ? (
           <>
             <section className="lr-cert-summary">
-              <span className="lr-cert-summary-status" data-valid={valid || undefined}>
-                {valid ? <ShieldCheck aria-hidden="true" /> : <ShieldX aria-hidden="true" />}
-              </span>
+              <div>
+                <small>Course</small>
+                <strong>{certificate.courseName}</strong>
+              </div>
               <div>
                 <small>Learner</small>
                 <strong>{certificate.studentName}</strong>
               </div>
               <div>
-                <small>Course</small>
-                <strong>{certificate.courseName}</strong>
+                <small>Certificate number</small>
+                <CertificateNumber value={certificate.certificateNumber} />
               </div>
               <div>
                 <small>Completed</small>
@@ -1143,41 +1174,12 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
                   })}
                 </strong>
               </div>
-              <div>
-                <small>Certificate number</small>
-                <strong>{certificate.certificateNumber}</strong>
-              </div>
             </section>
 
             {owned.course ? (
-              <section className="lr-section lr-section--plain">
-                <div className="lr-section-heading">
-                  <div>
-                    <h2>Course</h2>
-                    <p>The DANVIC course this certificate was issued for.</p>
-                  </div>
-                  <Link href={courseHref(owned.course.id)} className="lr-row-action">
-                    View course <ArrowRight aria-hidden="true" />
-                  </Link>
-                </div>
-                <div className="sb-course-meta">
-                  <span>{owned.course.type === 'live' ? 'Live course' : 'Premade course'}</span>
-                  <span>
-                    <Clock3 aria-hidden="true" /> {owned.course.durationMinutes} min
-                  </span>
-                  {owned.course.scheduledAt ? (
-                    <span>
-                      <CalendarClock aria-hidden="true" />{' '}
-                      {new Date(owned.course.scheduledAt).toLocaleDateString()}
-                    </span>
-                  ) : null}
-                  <span>
-                    {owned.course.accessType === 'paid'
-                      ? formatNaira(owned.course.priceKobo)
-                      : 'Free'}
-                  </span>
-                </div>
-              </section>
+              <Link href={courseHref(owned.course.id)} className="lr-cert-course-link">
+                See this certificate’s course <ArrowRight aria-hidden="true" />
+              </Link>
             ) : null}
 
             {owned.finalAssessment && owned.assessmentHref ? (
