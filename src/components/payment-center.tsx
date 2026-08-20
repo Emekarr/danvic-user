@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   apiFetch,
   type InitializedCoursePayment,
@@ -18,7 +17,6 @@ export function SavedCards({
   methods: SavedPaymentMethod[]
   setupAmountKobo: number
 }) {
-  const router = useRouter()
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
 
@@ -28,7 +26,12 @@ export function SavedCards({
     try {
       const checkout = await apiFetch<InitializedCoursePayment>(
         '/api/payment-methods/paystack/setup',
-        { method: 'POST', body: '{}' },
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            callbackUrl: `${window.location.origin}/payments/paystack/callback`,
+          }),
+        },
       )
       window.location.assign(checkout.authorizationUrl)
     } catch (cause) {
@@ -78,7 +81,7 @@ export function SavedCards({
                   setError('')
                   try {
                     await apiFetch(`/api/payment-methods/${method.id}`, { method: 'DELETE' })
-                    router.refresh()
+                    window.location.reload()
                   } catch (cause) {
                     setError(
                       cause instanceof Error ? cause.message : 'Card could not be removed',

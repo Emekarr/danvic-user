@@ -1,8 +1,7 @@
-'use client'
-
 import { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { TwoFactorForm } from '@/components/student-auth'
+import { TwoFactorQueryPage } from '@/components/auth-query-pages'
+
+export const metadata = { title: 'Two-factor verification' }
 
 export default function Page() {
   return (
@@ -13,12 +12,7 @@ export default function Page() {
         </main>
       }
     >
-      <TwoFactorPage />
+      <TwoFactorQueryPage />
     </Suspense>
   )
-}
-
-function TwoFactorPage() {
-  const query = useSearchParams()
-  return <TwoFactorForm returnTo={query.get('next') ?? undefined} />
 }

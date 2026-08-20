@@ -24,8 +24,10 @@ export function DownloadButton({
           setBusy(true)
           setError('')
           try {
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/$/, '')
+            if (!backendUrl) throw new Error('The backend URL is not configured')
             const result = await apiFetch<{ downloadUrl: string }>(
-              `/api/courses/${courseId}/attachments/${attachmentId}`,
+              `${backendUrl}/student/courses/${encodeURIComponent(courseId)}/attachments/${encodeURIComponent(attachmentId)}/download`,
             )
             window.open(result.downloadUrl, '_blank', 'noopener,noreferrer')
           } catch (cause) {

@@ -1,10 +1,23 @@
 # DANVIC User
 
-This is a static, browser-rendered learner workspace. It calls the DANVIC backend through `/api/student/*` and has no application server.
+This is the static Next.js edition of the DANVIC learner frontend. The UI and learner workflows are browser-rendered, and the browser calls the DANVIC compatibility API at `/api/student/*`. No Node.js or Next.js server is required after the build.
 
-1. Copy `.env.example` to `.env.local` and set the public backend URL.
-2. Add the deployed site origin to the backend's `CORS_ORIGINS` setting.
-3. Run `npm install` and `npm run build`.
-4. Deploy `out/` only.
+## Local setup
 
-For Cloudflare Pages, select **Next.js (Static HTML Export)**, use `npx next build`, set `out` as the output directory, and configure `NEXT_PUBLIC_BACKEND_API_URL` and `NEXT_PUBLIC_DANVIC_APP=student`. Do not use `@cloudflare/next-on-pages`.
+1. Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_BACKEND_API_URL` to the public backend origin.
+2. Add the frontend origin to the backend's `CORS_ORIGINS` value. The backend must allow credentials because learner sessions use secure HTTP-only cookies.
+3. Run `npm install`.
+4. Run `npm run dev` for local development or `npm run build` for the deployable export.
+
+The production files are written to `out/`. The included `_redirects` file provides the SPA fallback required by data-driven routes such as `/courses/:courseId`, and `_headers` contains the security and media policies needed by the learner, recording, and live-classroom views.
+
+## Cloudflare Pages
+
+- Framework preset: **Next.js (Static HTML Export)**
+- Build command: `npm run build`
+- Build output directory: `out`
+- Environment variables:
+  - `NEXT_PUBLIC_BACKEND_API_URL=https://your-backend.example.com`
+  - `NEXT_PUBLIC_DANVIC_APP=student`
+
+Deploy the contents of `out/`; do not use a Pages Functions or Workers adapter for this project.

@@ -1,8 +1,7 @@
-'use client'
-
 import { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { LoginForm } from '@/components/student-auth'
+import { LoginQueryPage } from '@/components/auth-query-pages'
+
+export const metadata = { title: 'Student sign in' }
 
 export default function Page() {
   return (
@@ -13,12 +12,7 @@ export default function Page() {
         </main>
       }
     >
-      <LoginPage />
+      <LoginQueryPage />
     </Suspense>
   )
-}
-
-function LoginPage() {
-  const query = useSearchParams()
-  return <LoginForm returnTo={query.get('next') ?? undefined} />
 }

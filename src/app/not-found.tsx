@@ -9,8 +9,8 @@ export default function NotFound() {
         <p className="sb-page-eyebrow" style={{ marginTop: 42 }}>
           404
         </p>
-        <h2>Page not found</h2>
-        <p>Check the address or return to the current catalog.</p>
+        <h2>Course not found</h2>
+        <p>Check the course ID or return to the current catalog.</p>
         <div className="sb-login-fields">
           <Link href="/catalog" className="sb-button sb-button--primary sb-button--lg">
             Browse courses

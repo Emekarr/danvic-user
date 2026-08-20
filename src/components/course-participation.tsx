@@ -1,7 +1,6 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   apiFetch,
   type InitializedCoursePayment,
@@ -14,7 +13,6 @@ import { CheckCircle2, CreditCard, UserPlus, WalletCards, X } from 'lucide-react
 import { CardBrandMark } from './card-brand-mark'
 
 export function PaidEnrollButton({ courseId, priceKobo }: { courseId: string; priceKobo: number }) {
-  const router = useRouter()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -34,12 +32,12 @@ export function PaidEnrollButton({ courseId, priceKobo }: { courseId: string; pr
           body: JSON.stringify({
             paymentMethodId: selected === 'new' ? null : selected,
             savePaymentMethod: selected === 'new' && saveNew,
+            callbackUrl: `${window.location.origin}/payments/paystack/callback`,
           }),
         },
       )
       if (payment.status === 'success') {
-        router.push(`/courses/${courseId}?payment=success`)
-        router.refresh()
+        window.location.replace(`/courses/${courseId}?payment=success`)
         return
       }
       window.location.assign(payment.authorizationUrl)
@@ -152,7 +150,6 @@ export function PaidEnrollButton({ courseId, priceKobo }: { courseId: string; pr
 }
 
 export function EnrollButton({ courseId }: { courseId: string }) {
-  const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   return (
@@ -164,8 +161,7 @@ export function EnrollButton({ courseId }: { courseId: string }) {
           setError('')
           try {
             await apiFetch(`/api/courses/${courseId}/enroll`, { method: 'POST', body: '{}' })
-            router.push(`/courses/${courseId}`)
-            router.refresh()
+            window.location.replace(`/courses/${courseId}`)
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Enrollment failed')
           } finally {
@@ -191,7 +187,6 @@ export function CompleteModuleButton({
   completed: boolean
   locked: boolean
 }) {
-  const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   return (
@@ -212,11 +207,10 @@ export function CompleteModuleButton({
               },
             )
             if (result.courseCompleted) {
-              router.replace(`/courses/${courseId}`)
-              router.refresh()
+              window.location.replace(`/courses/${courseId}`)
               return
             }
-            router.refresh()
+            window.location.reload()
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Progress could not be saved')
           } finally {
