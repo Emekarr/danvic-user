@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Badge } from '@danvic/ui'
 import { ArrowRight } from 'lucide-react'
 import { useAssessments, useEnrollments } from '@/lib/data'
+import { LoadingState } from '@/components/loading-state'
 import { courseHref } from '@/lib/course-route'
 
 export default function DashboardPage() {
@@ -11,7 +12,7 @@ export default function DashboardPage() {
   const assessmentsState = useAssessments()
 
   if (enrollmentsState.loading || assessmentsState.loading)
-    return <p className="ad-empty-line">Loading your learning overview…</p>
+    return <LoadingState label="Loading your learning overview…" />
   if (enrollmentsState.error || assessmentsState.error)
     return (
       <p className="ad-empty-line" data-tone="error">

@@ -4,11 +4,12 @@ import Link from 'next/link'
 import { Badge, EmptyState, PageHeader } from '@danvic/ui'
 import { CalendarClock, ClipboardCheck, Clock3 } from 'lucide-react'
 import { useAssessments } from '@/lib/data'
+import { LoadingState } from '@/components/loading-state'
 
 export default function AssessmentsPage() {
   const { data, loading, error } = useAssessments()
 
-  if (loading) return <p className="ad-empty-line">Loading your assessments…</p>
+  if (loading) return <LoadingState label="Loading your assessments…" />
   if (error) return <p className="ad-empty-line" data-tone="error">{error}</p>
 
   const assessments = data ?? []

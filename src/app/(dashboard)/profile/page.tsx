@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Badge, PageHeader } from '@danvic/ui'
 import { useEnrollments, useStudent } from '@/lib/data'
+import { LoadingState } from '@/components/loading-state'
 import { StudentProfileForm } from '@/components/student-profile-form'
 
 export default function ProfilePage() {
@@ -10,7 +11,7 @@ export default function ProfilePage() {
   const enrollmentsState = useEnrollments()
 
   if (studentState.loading || enrollmentsState.loading)
-    return <p className="ad-empty-line">Loading your profile…</p>
+    return <LoadingState label="Loading your profile…" />
   if (studentState.error || enrollmentsState.error || !studentState.student)
     return (
       <p className="ad-empty-line" data-tone="error">

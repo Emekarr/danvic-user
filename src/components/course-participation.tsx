@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   apiFetch,
   type InitializedCoursePayment,
@@ -13,7 +14,16 @@ import { Bell, BellOff, CheckCircle2, CreditCard, UserPlus, WalletCards, X } fro
 import { CardBrandMark } from './card-brand-mark'
 import { courseHref } from '@/lib/course-route'
 
-export function PaidEnrollButton({ courseId, priceKobo }: { courseId: string; priceKobo: number }) {
+export function PaidEnrollButton({
+  courseId,
+  priceKobo,
+  onEnrolled,
+}: {
+  courseId: string
+  priceKobo: number
+  onEnrolled?: () => void
+}) {
+  const router = useRouter()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -38,7 +48,9 @@ export function PaidEnrollButton({ courseId, priceKobo }: { courseId: string; pr
         },
       )
       if (payment.status === 'success') {
-        window.location.replace(`${courseHref(courseId)}&payment=success`)
+        close()
+        onEnrolled?.()
+        router.replace(`${courseHref(courseId)}&payment=success`)
         return
       }
       window.location.assign(payment.authorizationUrl)
@@ -150,7 +162,14 @@ export function PaidEnrollButton({ courseId, priceKobo }: { courseId: string; pr
   )
 }
 
-export function EnrollButton({ courseId }: { courseId: string }) {
+export function EnrollButton({
+  courseId,
+  onEnrolled,
+}: {
+  courseId: string
+  onEnrolled?: () => void
+}) {
+  const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   return (
@@ -162,7 +181,8 @@ export function EnrollButton({ courseId }: { courseId: string }) {
           setError('')
           try {
             await apiFetch(`/api/courses/${courseId}/enroll`, { method: 'POST', body: '{}' })
-            window.location.replace(courseHref(courseId))
+            if (onEnrolled) onEnrolled()
+            else router.push(courseHref(courseId))
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Enrollment failed')
           } finally {
@@ -226,11 +246,13 @@ export function CompleteModuleButton({
   moduleId,
   completed,
   locked,
+  onCompleted,
 }: {
   courseId: string
   moduleId: string
   completed: boolean
   locked: boolean
+  onCompleted?: (courseCompleted: boolean) => void
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -251,11 +273,7 @@ export function CompleteModuleButton({
               body: '{}',
               },
             )
-            if (result.courseCompleted) {
-              window.location.replace(courseHref(courseId))
-              return
-            }
-            window.location.reload()
+            onCompleted?.(result.courseCompleted)
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Progress could not be saved')
           } finally {

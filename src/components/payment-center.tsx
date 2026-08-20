@@ -11,12 +11,13 @@ import { Plus, Trash2 } from 'lucide-react'
 import { CardBrandMark } from './card-brand-mark'
 
 export function SavedCards({
-  methods,
+  methods: initialMethods,
   setupAmountKobo,
 }: {
   methods: SavedPaymentMethod[]
   setupAmountKobo: number
 }) {
+  const [methods, setMethods] = useState(initialMethods)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
 
@@ -81,7 +82,7 @@ export function SavedCards({
                   setError('')
                   try {
                     await apiFetch(`/api/payment-methods/${method.id}`, { method: 'DELETE' })
-                    window.location.reload()
+                    setMethods((current) => current.filter((item) => item.id !== method.id))
                   } catch (cause) {
                     setError(
                       cause instanceof Error ? cause.message : 'Card could not be removed',

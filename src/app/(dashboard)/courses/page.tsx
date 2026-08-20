@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { EnrolledCourseList } from '@/components/enrolled-course-list'
 import { useEnrollments } from '@/lib/data'
+import { LoadingState } from '@/components/loading-state'
 
 export default function CoursesPage() {
   const { data, loading, error } = useEnrollments()
 
-  if (loading) return <p className="ad-empty-line">Loading your enrolled courses…</p>
+  if (loading) return <LoadingState label="Loading your enrolled courses…" />
   if (error) return <p className="ad-empty-line" data-tone="error">{error}</p>
 
   const items = data ?? []

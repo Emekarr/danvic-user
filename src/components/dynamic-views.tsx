@@ -14,6 +14,7 @@ import {
   type LiveSession,
   type StudentCourseAggregate,
   type StudentEnrollmentSummary,
+  type StudentProfile,
 } from '@danvic/api-client'
 import { Badge, Card, EmptyState, PageHeader } from '@danvic/ui'
 import {
@@ -46,6 +47,7 @@ import {
 import { CertificateActions } from '@/components/certificate-actions'
 import { CourseCover } from '@/components/course-cover-display'
 import { LearnerAppShell } from '@/components/learner-app-shell'
+import { LearnerShellLoading, LoadingState } from '@/components/loading-state'
 import { StaticRouteLink } from '@/components/static-route-link'
 import {
   useAssessment,
@@ -90,9 +92,39 @@ const formatDuration = (seconds: number | null) => {
     .join(':')
 }
 
+function runningDurationLabel(startedAt: string, now: number) {
+  const elapsedSeconds = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000))
+  const hours = Math.floor(elapsedSeconds / 3600)
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60)
+  if (hours) return `${hours} hr${hours === 1 ? '' : 's'}${minutes ? ` ${minutes} min` : ''}`
+  if (minutes) return `${minutes} min`
+  return 'less than a minute'
+}
+
+function LiveSessionTiming({ session }: { session: LiveSession }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  if (!session.startedAt) return null
+  return (
+    <>
+      <span>
+        <CalendarClock aria-hidden="true" /> Started {new Date(session.startedAt).toLocaleString()}
+      </span>
+      <span>
+        <Clock3 aria-hidden="true" /> Running for {runningDurationLabel(session.startedAt, now)}
+      </span>
+    </>
+  )
+}
+
 export function CourseView({ courseId }: { courseId: string }) {
   const query = useSearchParams()
   const paymentSucceeded = query.get('payment') === 'success'
+  const [viewer, setViewer] = useState<StudentProfile | null | undefined>(undefined)
+  const [revision, setRevision] = useState(0)
   const [state, setState] = useState<{
     phase: 'loading' | 'participating' | 'preview' | 'unavailable'
     aggregate: StudentCourseAggregate | null
@@ -123,9 +155,11 @@ export function CourseView({ courseId }: { courseId: string }) {
   useEffect(() => {
     let active = true
     void (async () => {
-      const signedIn = await apiFetch<{ student: { id: string } }>('/api/auth/me')
-        .then(() => true)
-        .catch(() => false)
+      const resolvedViewer = await apiFetch<{ student: StudentProfile }>('/api/auth/me')
+        .then((value) => value.student)
+        .catch(() => null)
+      const signedIn = Boolean(resolvedViewer)
+      if (active) setViewer(resolvedViewer)
       let aggregate: StudentCourseAggregate | null = null
       let aggregateCode = ''
       let aggregateMessage = ''
@@ -243,14 +277,10 @@ export function CourseView({ courseId }: { courseId: string }) {
     return () => {
       active = false
     }
-  }, [courseId])
+  }, [courseId, revision])
 
   if (state.phase === 'loading')
-    return (
-      <LearnerAppShell>
-        <p className="ad-empty-line">Loading the course…</p>
-      </LearnerAppShell>
-    )
+    return <LearnerShellLoading label="Loading the course…" />
 
   if (state.phase === 'participating' && state.aggregate) {
     const value = state.aggregate
@@ -264,7 +294,7 @@ export function CourseView({ courseId }: { courseId: string }) {
         ? Math.round((completed.size / modules.length) * 100)
         : 0
     return (
-      <LearnerAppShell>
+      <LearnerAppShell student={viewer ?? null}>
         <div>
           {paymentSucceeded ? (
             <Card style={{ marginBottom: 20 }}>
@@ -303,21 +333,33 @@ export function CourseView({ courseId }: { courseId: string }) {
                   </svg>
                   <span>{progressPercent}%</span>
                 </span>
-                <Link
-                  href={courseHref(course.id, 'study')}
-                  className="sb-button sb-button--primary sb-button--md"
-                >
-                  Resume studying
-                </Link>
-                {state.session?.status === 'live' ? (
+                {course.type !== 'live' ? (
                   <Link
-                    href={courseHref(course.id, 'live')}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={courseHref(course.id, 'study')}
                     className="sb-button sb-button--primary sb-button--md"
                   >
-                    <Radio /> Join live class
+                    Resume studying
                   </Link>
+                ) : null}
+                {course.type === 'live' ? (
+                  state.session?.status === 'live' ? (
+                    <Link
+                      href={courseHref(course.id, 'live')}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="sb-button sb-button--primary sb-button--md"
+                    >
+                      <Radio /> Join class
+                    </Link>
+                  ) : (
+                    <span
+                      className="sb-button sb-button--soft sb-button--md"
+                      aria-disabled="true"
+                      title="The class can be joined once the author starts it."
+                    >
+                      <Radio /> Join class
+                    </span>
+                  )
                 ) : null}
                 {state.recordings.length ? (
                   <Link
@@ -331,10 +373,19 @@ export function CourseView({ courseId }: { courseId: string }) {
             }
           />
           <div className="sb-course-meta" style={{ marginBottom: 28 }}>
-            <span>
-              <Clock3 aria-hidden="true" /> {course.durationMinutes} minutes
-            </span>
-            {course.scheduledAt ? (
+            {course.type === 'live' && state.session?.status === 'live' ? (
+              <LiveSessionTiming session={state.session} />
+            ) : (
+              <span>
+                <Clock3 aria-hidden="true" /> {course.durationMinutes} minutes
+              </span>
+            )}
+            {course.type === 'live' && state.session?.status !== 'live' && course.scheduledAt ? (
+              <span>
+                <CalendarClock aria-hidden="true" /> Scheduled for{' '}
+                {new Date(course.scheduledAt).toLocaleString()}
+              </span>
+            ) : course.type !== 'live' && course.scheduledAt ? (
               <span>
                 <CalendarClock aria-hidden="true" /> Available since{' '}
                 {new Date(course.scheduledAt).toLocaleString()}
@@ -410,7 +461,7 @@ export function CourseView({ courseId }: { courseId: string }) {
     const { course, modules } = state.preview
     const upcomingLive = state.upcomingLive
     return (
-      <LearnerAppShell>
+      <LearnerAppShell student={viewer ?? null}>
         <div>
           <PageHeader
             eyebrow={course.type === 'live' ? 'Live course' : 'Premade course'}
@@ -472,9 +523,16 @@ export function CourseView({ courseId }: { courseId: string }) {
                 </Link>
               ) : state.canEnroll ? (
                 course.accessType === 'paid' ? (
-                  <PaidEnrollButton courseId={course.id} priceKobo={course.priceKobo} />
+                  <PaidEnrollButton
+                    courseId={course.id}
+                    priceKobo={course.priceKobo}
+                    onEnrolled={() => setRevision((value) => value + 1)}
+                  />
                 ) : (
-                  <EnrollButton courseId={course.id} />
+                  <EnrollButton
+                    courseId={course.id}
+                    onEnrolled={() => setRevision((value) => value + 1)}
+                  />
                 )
               ) : (
                 <Link
@@ -504,7 +562,7 @@ export function CourseView({ courseId }: { courseId: string }) {
   }
 
   return (
-    <LearnerAppShell>
+    <LearnerAppShell student={viewer ?? null}>
       <div>
         <Card className="sb-empty-state">
           <span className="sb-empty-icon">
@@ -527,7 +585,12 @@ export function StudyView({ courseId }: { courseId: string }) {
   useEffect(() => {
     if (error) router.replace(courseHref(courseId))
   }, [error, router, courseId])
-  if (loading) return <p className="ad-empty-line">Loading your course…</p>
+  if (loading)
+    return (
+      <LearnerAppShell>
+        <LoadingState label="Loading your course…" />
+      </LearnerAppShell>
+    )
   if (error || !data)
     return (
       <p className="ad-empty-line" data-tone="error">
@@ -544,7 +607,7 @@ export function LiveView({ courseId }: { courseId: string }) {
     if (error || !data?.session || data.session.status !== 'live')
       router.replace(courseHref(courseId))
   }, [error, data, router, courseId])
-  if (loading) return <p className="ad-empty-line">Checking the live session…</p>
+  if (loading) return <LearnerShellLoading label="Checking the live session…" />
   if (error || !data?.session)
     return (
       <p className="ad-empty-line" data-tone="error">

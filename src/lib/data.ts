@@ -26,7 +26,7 @@ export interface ResourceState<T> {
   reload: () => void
 }
 
-export function useResource<T>(path: string, gate = false): ResourceState<T> {
+export function useResource<T>(path: string, gate = false, enabled = true): ResourceState<T> {
   const router = useRouter()
   const [tick, setTick] = useState(0)
   const [state, setState] = useState<{
@@ -36,6 +36,7 @@ export function useResource<T>(path: string, gate = false): ResourceState<T> {
     code: string
   }>({ data: null, loading: true, error: '', code: '' })
   useEffect(() => {
+    if (!enabled) return
     let active = true
     apiFetch<T>(path)
       .then((data) => {
@@ -54,7 +55,7 @@ export function useResource<T>(path: string, gate = false): ResourceState<T> {
     return () => {
       active = false
     }
-  }, [path, router, gate, tick])
+  }, [path, router, gate, enabled, tick])
   const reload = useCallback(() => {
     setState((previous) => ({ ...previous, loading: true, error: '', code: '' }))
     setTick((value) => value + 1)

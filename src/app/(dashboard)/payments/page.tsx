@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Badge, PageHeader } from '@danvic/ui'
 import { useEnrollments, usePayments } from '@/lib/data'
+import { LoadingState } from '@/components/loading-state'
 import { SavedCards } from '@/components/payment-center'
 import { CardBrandMark } from '@/components/card-brand-mark'
 import { TransactionReference } from '@/components/transaction-reference'
@@ -24,7 +25,7 @@ function PaymentsPage() {
   const enrollmentsState = useEnrollments()
 
   if (paymentsState.loading || enrollmentsState.loading)
-    return <p className="ad-empty-line">Loading your payment history…</p>
+    return <LoadingState label="Loading your payment history…" />
   if (paymentsState.error || enrollmentsState.error)
     return (
       <p className="ad-empty-line" data-tone="error">

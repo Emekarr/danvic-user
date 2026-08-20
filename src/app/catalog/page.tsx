@@ -6,6 +6,7 @@ import { EmptyState, PageHeader } from '@danvic/ui'
 import { BookOpen } from 'lucide-react'
 import { LearnerAppShell } from '@/components/learner-app-shell'
 import { CatalogCourseList } from '@/components/catalog-course-list'
+import { LoadingState } from '@/components/loading-state'
 
 export default function CatalogPage() {
   const [courses, setCourses] = useState<CatalogCourse[] | null>(null)
@@ -56,7 +57,9 @@ export default function CatalogPage() {
           title="Available DANVIC courses"
           description="Browse free and paid courses. Paid access is activated after Paystack verifies your payment."
         />
-        {courses && courses.length ? (
+        {courses === null ? (
+          <LoadingState label="Loading the course catalog…" />
+        ) : courses.length ? (
           <CatalogCourseList
             initialCourses={courses}
             enrolledCourseIds={enrolled}

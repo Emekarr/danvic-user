@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
 import type { Attachment, StudentCourseAggregate } from '@danvic/api-client'
 import { Button, CustomDropdown } from '@danvic/ui'
@@ -108,7 +109,9 @@ function Resources({
 
 export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) {
   const { course, modules, attachments, completedModuleIds } = value
-  const completed = new Set(completedModuleIds)
+  const router = useRouter()
+  const [completedModuleIdState, setCompletedModuleIdState] = useState(completedModuleIds)
+  const completed = new Set(completedModuleIdState)
   const [activeIndex, setActiveIndex] = useState(0)
   const materialsRef = useRef<HTMLElement>(null)
   const active = modules[activeIndex]
@@ -178,7 +181,18 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
                 ) : (
                   <>
                     <div className="lr-study-content">{active.content}</div>
-                    <CompleteModuleButton courseId={course.id} moduleId={active.id} completed={completed.has(active.id)} locked={false} />
+                    <CompleteModuleButton
+                      courseId={course.id}
+                      moduleId={active.id}
+                      completed={completed.has(active.id)}
+                      locked={false}
+                      onCompleted={(courseCompleted) => {
+                        setCompletedModuleIdState((current) =>
+                          current.includes(active.id) ? current : [...current, active.id],
+                        )
+                        if (courseCompleted) router.replace(courseHref(course.id))
+                      }}
+                    />
                   </>
                 )}
                 <div className="lr-study-pagination">
