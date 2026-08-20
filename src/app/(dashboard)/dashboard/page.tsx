@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Badge } from '@danvic/ui'
 import { ArrowRight } from 'lucide-react'
 import { useAssessments, useEnrollments } from '@/lib/data'
+import { StaticRouteLink } from '@/components/static-route-link'
 
 export default function DashboardPage() {
   const enrollmentsState = useEnrollments()
@@ -82,7 +83,7 @@ export default function DashboardPage() {
           </div>
           {enrollments.map((item) =>
             item.course ? (
-              <Link
+              <StaticRouteLink
                 className="lr-overview-row"
                 href={`/courses/${item.course.id}`}
                 key={item.enrollment.id}
@@ -97,7 +98,7 @@ export default function DashboardPage() {
                 <Badge tone={item.enrollment.completedAt ? 'green' : 'blue'}>
                   {item.enrollment.completedAt ? 'Completed' : 'Continue'}
                 </Badge>
-              </Link>
+              </StaticRouteLink>
             ) : null,
           )}
         </section>
@@ -109,9 +110,15 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="lr-action-list">
-            <Link href={nextCourse?.course ? `/courses/${nextCourse.course.id}` : '/courses'}>
-              Resume current course <ArrowRight aria-hidden="true" />
-            </Link>
+            {nextCourse?.course ? (
+              <StaticRouteLink href={`/courses/${nextCourse.course.id}`}>
+                Resume current course <ArrowRight aria-hidden="true" />
+              </StaticRouteLink>
+            ) : (
+              <Link href="/courses">
+                Resume current course <ArrowRight aria-hidden="true" />
+              </Link>
+            )}
             <Link href="/assessments">
               Review assessments <ArrowRight aria-hidden="true" />
             </Link>

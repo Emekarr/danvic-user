@@ -1,11 +1,11 @@
 'use client'
 
-import Link from 'next/link'
 import type { Certificate, Course } from '@danvic/api-client'
 import { Badge, EmptyState, PageHeader } from '@danvic/ui'
 import { ArrowRight, Award } from 'lucide-react'
 import { LearnerAppShell } from '@/components/learner-app-shell'
 import { useEnrollments } from '@/lib/data'
+import { StaticRouteLink } from '@/components/static-route-link'
 
 export default function CertificatesPage() {
   const { data, loading, error } = useEnrollments()
@@ -30,7 +30,7 @@ export default function CertificatesPage() {
         {certificates.length ? (
           <div className="lr-cert-list">
             {certificates.map(({ certificate, course }) => (
-              <Link
+              <StaticRouteLink
                 className="lr-cert-row"
                 href={`/certificates/${encodeURIComponent(certificate.certificateNumber)}`}
                 key={certificate.id}
@@ -57,7 +57,7 @@ export default function CertificatesPage() {
                   </Badge>
                   <ArrowRight aria-hidden="true" className="lr-cert-row-chevron" />
                 </span>
-              </Link>
+              </StaticRouteLink>
             ))}
           </div>
         ) : (

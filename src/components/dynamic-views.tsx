@@ -38,10 +38,15 @@ import { CourseStudyPlayer } from '@/components/course-study-player'
 import { ViewOnlyPlayer } from '@/components/view-only-player'
 import { AssessmentPlayer, StartAssessmentButton } from '@/components/assessment-player'
 import { AuthorRating } from '@/components/author-rating'
-import { EnrollButton, PaidEnrollButton } from '@/components/course-participation'
+import {
+  CourseBookmarkButton,
+  EnrollButton,
+  PaidEnrollButton,
+} from '@/components/course-participation'
 import { CertificateActions } from '@/components/certificate-actions'
 import { CourseCover } from '@/components/course-cover-display'
 import { LearnerAppShell } from '@/components/learner-app-shell'
+import { StaticRouteLink } from '@/components/static-route-link'
 import {
   useAssessment,
   useAssessmentAttempt,
@@ -95,6 +100,9 @@ export function CourseView({ courseId }: { courseId: string }) {
     finalAssessment: Assessment | null
     preview: CoursePreview | null
     canEnroll: boolean
+    canBookmark: boolean
+    bookmarked: boolean
+    upcomingLive: boolean
     message: string
     scheduled: boolean
   }>({
@@ -105,6 +113,9 @@ export function CourseView({ courseId }: { courseId: string }) {
     finalAssessment: null,
     preview: null,
     canEnroll: false,
+    canBookmark: false,
+    bookmarked: false,
+    upcomingLive: false,
     message: '',
     scheduled: false,
   })
@@ -147,6 +158,9 @@ export function CourseView({ courseId }: { courseId: string }) {
             null,
           preview: null,
           canEnroll: false,
+          canBookmark: false,
+          bookmarked: false,
+          upcomingLive: false,
           message: '',
           scheduled: false,
         })
@@ -156,6 +170,15 @@ export function CourseView({ courseId }: { courseId: string }) {
         const preview = await apiFetch<CoursePreview>(
           `/api/catalog/courses/${encodeURIComponent(courseId)}`,
         )
+        const upcomingLive =
+          preview.course.type === 'live' &&
+          Boolean(preview.course.scheduledAt) &&
+          new Date(preview.course.scheduledAt!).getTime() > Date.now()
+        const saved = signedIn && upcomingLive
+          ? await apiFetch<{ bookmarks: Array<{ courseId: string; enabled: boolean }> }>(
+              '/api/course-bookmarks',
+            ).catch(() => ({ bookmarks: [] }))
+          : { bookmarks: [] }
         if (active)
           setState({
             phase: 'preview',
@@ -164,7 +187,13 @@ export function CourseView({ courseId }: { courseId: string }) {
             recordings: [],
             finalAssessment: null,
             preview,
-            canEnroll: signedIn && aggregateCode === 'ENROLLMENT_REQUIRED',
+            canEnroll:
+              signedIn && aggregateCode === 'ENROLLMENT_REQUIRED' && !upcomingLive,
+            canBookmark: signedIn && upcomingLive,
+            bookmarked: saved.bookmarks.some(
+              (item) => item.courseId === courseId && item.enabled,
+            ),
+            upcomingLive,
             message: '',
             scheduled: false,
           })
@@ -178,6 +207,9 @@ export function CourseView({ courseId }: { courseId: string }) {
             finalAssessment: null,
             preview: null,
             canEnroll: false,
+            canBookmark: false,
+            bookmarked: false,
+            upcomingLive: false,
             message: cause instanceof Error ? cause.message : 'The course could not be loaded.',
             scheduled: (cause as { code?: string }).code === 'COURSE_NOT_AVAILABLE',
           })
@@ -246,29 +278,29 @@ export function CourseView({ courseId }: { courseId: string }) {
                   </svg>
                   <span>{progressPercent}%</span>
                 </span>
-                <Link
+                <StaticRouteLink
                   href={`/courses/${course.id}/study`}
                   className="sb-button sb-button--primary sb-button--md"
                 >
                   Resume studying
-                </Link>
+                </StaticRouteLink>
                 {state.session?.status === 'live' ? (
-                  <Link
+                  <StaticRouteLink
                     href={`/courses/${course.id}/live`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="sb-button sb-button--primary sb-button--md"
                   >
                     <Radio /> Join live class
-                  </Link>
+                  </StaticRouteLink>
                 ) : null}
                 {state.recordings.length ? (
-                  <Link
+                  <StaticRouteLink
                     href={`/courses/${course.id}/recordings`}
                     className="sb-button sb-button--secondary sb-button--md"
                   >
                     <Play /> View recordings
-                  </Link>
+                  </StaticRouteLink>
                 ) : null}
               </>
             }
@@ -285,12 +317,12 @@ export function CourseView({ courseId }: { courseId: string }) {
             ) : null}
           </div>
           <CourseCover course={course} className="lr-course-hero-media" />
-          <Link
+          <StaticRouteLink
             href={`/authors/${course.createdByAuthorId}`}
             className="lr-author-link lr-author-link--inline"
           >
             Meet the course author
-          </Link>
+          </StaticRouteLink>
           {state.finalAssessment && !enrollment.completedAt ? (
             <Card className="as-course-final">
               <div>
@@ -303,12 +335,12 @@ export function CourseView({ courseId }: { courseId: string }) {
                 </p>
               </div>
               {modulesComplete && state.finalAssessment.availability === 'open' ? (
-                <Link
+                <StaticRouteLink
                   href={`/assessments/${state.finalAssessment.id}`}
                   className="sb-button sb-button--primary sb-button--md"
                 >
                   Take final assessment
-                </Link>
+                </StaticRouteLink>
               ) : (
                 <span className="sb-button sb-button--soft sb-button--md" aria-disabled="true">
                   {!modulesComplete
@@ -351,6 +383,7 @@ export function CourseView({ courseId }: { courseId: string }) {
 
   if (state.phase === 'preview' && state.preview) {
     const { course, modules } = state.preview
+    const upcomingLive = state.upcomingLive
     return (
       <LearnerAppShell>
         <div>
@@ -361,8 +394,8 @@ export function CourseView({ courseId }: { courseId: string }) {
             actions={
               <>
                 <Badge tone={course.type === 'live' ? 'violet' : 'blue'}>{course.type}</Badge>
-                <Badge tone="green" dot>
-                  Available
+                <Badge tone={upcomingLive ? 'violet' : 'green'} dot>
+                  {upcomingLive ? 'Scheduled' : 'Available'}
                 </Badge>
                 <Badge tone={course.accessType === 'paid' ? 'green' : 'blue'}>
                   {course.accessType === 'paid' ? formatNaira(course.priceKobo) : 'Free'}
@@ -376,29 +409,43 @@ export function CourseView({ courseId }: { courseId: string }) {
             </span>
             {course.scheduledAt ? (
               <span>
-                <CalendarClock aria-hidden="true" /> Available since{' '}
+                <CalendarClock aria-hidden="true" /> {upcomingLive ? 'Starts' : 'Available since'}{' '}
                 {new Date(course.scheduledAt).toLocaleString()}
               </span>
             ) : null}
           </div>
           <CourseCover course={course} className="lr-course-hero-media" />
-          <Link
+          <StaticRouteLink
             href={`/authors/${course.createdByAuthorId}`}
             className="lr-author-link lr-author-link--inline"
           >
             Meet the course author
-          </Link>
+          </StaticRouteLink>
           <Card className="sb-card-body" style={{ marginBottom: 28 }}>
             <div className="sb-list-row">
               <div>
-                <h2>Ready to participate?</h2>
+                <h2>{upcomingLive ? 'Save your place' : 'Ready to participate?'}</h2>
                 <p>
-                  {course.accessType === 'paid'
+                  {upcomingLive
+                    ? 'Bookmark this course and we will email you 30 minutes and 10 minutes before it starts.'
+                    : course.accessType === 'paid'
                     ? 'Complete a secure Paystack payment to unlock this course.'
                     : 'Sign in and enroll to unlock this free course.'}
                 </p>
               </div>
-              {state.canEnroll ? (
+              {upcomingLive && state.canBookmark ? (
+                <CourseBookmarkButton
+                  courseId={course.id}
+                  initialBookmarked={state.bookmarked}
+                />
+              ) : upcomingLive ? (
+                <Link
+                  href={`/login?next=${encodeURIComponent(`/courses/${course.id}`)}`}
+                  className="sb-button sb-button--primary sb-button--md"
+                >
+                  Sign in to bookmark
+                </Link>
+              ) : state.canEnroll ? (
                 course.accessType === 'paid' ? (
                   <PaidEnrollButton courseId={course.id} priceKobo={course.priceKobo} />
                 ) : (
@@ -505,12 +552,12 @@ export function RecordingsView({ courseId }: { courseId: string }) {
           title="Class recordings"
           description="Each start/stop interval is listed separately. Playback is enrollment-gated and view-only."
           actions={
-            <Link
+            <StaticRouteLink
               href={`/courses/${courseId}`}
               className="sb-button sb-button--ghost sb-button--md"
             >
               Back to course
-            </Link>
+            </StaticRouteLink>
           }
         />
         <div className="sb-module-list">
@@ -541,12 +588,12 @@ export function RecordingsView({ courseId }: { courseId: string }) {
                 </span>
               </div>
               {recording.status === 'ready' ? (
-                <Link
+                <StaticRouteLink
                   href={`/courses/${courseId}/recordings/${recording.id}`}
                   className="sb-button sb-button--primary sb-button--md"
                 >
                   <Play /> Watch
-                </Link>
+                </StaticRouteLink>
               ) : null}
             </Card>
           ))}
@@ -576,12 +623,12 @@ export function PlaybackView({
           title="Class recording"
           description="Streaming access is short-lived and the player does not expose a download action."
           actions={
-            <Link
+            <StaticRouteLink
               href={`/courses/${courseId}/recordings`}
               className="sb-button sb-button--ghost sb-button--md"
             >
               Back to recordings
-            </Link>
+            </StaticRouteLink>
           }
         />
         <ViewOnlyPlayer
@@ -607,12 +654,12 @@ export function AttachmentView({
           title="Course attachment"
           description="This attachment is displayed inside the course viewer without a download control."
           actions={
-            <Link
+            <StaticRouteLink
               href={`/courses/${courseId}`}
               className="sb-button sb-button--ghost sb-button--md"
             >
               Back to course
-            </Link>
+            </StaticRouteLink>
           }
         />
         <ViewOnlyPlayer
@@ -1004,9 +1051,9 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
                     <h2>Course</h2>
                     <p>The DANVIC course this certificate was issued for.</p>
                   </div>
-                  <Link href={`/courses/${owned.course.id}`} className="lr-row-action">
+                  <StaticRouteLink href={`/courses/${owned.course.id}`} className="lr-row-action">
                     View course <ArrowRight aria-hidden="true" />
-                  </Link>
+                  </StaticRouteLink>
                 </div>
                 <div className="sb-course-meta">
                   <span>{owned.course.type === 'live' ? 'Live course' : 'Premade course'}</span>
@@ -1250,9 +1297,9 @@ export function AuthorView({ authorId }: { authorId: string }) {
                   {courses.map((course) => (
                     <tr key={course.id}>
                       <td>
-                        <Link className="ad-table-link" href={`/courses/${course.id}`}>
+                        <StaticRouteLink className="ad-table-link" href={`/courses/${course.id}`}>
                           {course.name}
-                        </Link>
+                        </StaticRouteLink>
                       </td>
                       <td>{course.type === 'live' ? 'Live' : 'Premade'}</td>
                       <td>
@@ -1280,7 +1327,7 @@ export function AuthorView({ authorId }: { authorId: string }) {
 }
 
 export function CatchAllViews() {
-  const pathname = usePathname()
+  const pathname = usePathname().replace(/\/+$/, '') || '/'
 
   const course = pathname.match(/^\/courses\/([^/]+)$/)
   if (course) return <CourseView courseId={course[1] ?? ''} />

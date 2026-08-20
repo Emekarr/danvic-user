@@ -1,13 +1,13 @@
 'use client'
 
 import { Suspense } from 'react'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Badge, PageHeader } from '@danvic/ui'
 import { useEnrollments, usePayments } from '@/lib/data'
 import { SavedCards } from '@/components/payment-center'
 import { CardBrandMark } from '@/components/card-brand-mark'
 import { TransactionReference } from '@/components/transaction-reference'
+import { StaticRouteLink } from '@/components/static-route-link'
 
 export default function Page() {
   return (
@@ -102,12 +102,12 @@ function PaymentsPage() {
                   </td>
                   <td>
                     {transaction.courseId ? (
-                      <Link
+                      <StaticRouteLink
                         href={`/courses/${encodeURIComponent(transaction.courseId)}`}
                         className="sb-cell-link"
                       >
                         {courseNames.get(transaction.courseId) ?? transaction.courseId}
-                      </Link>
+                      </StaticRouteLink>
                     ) : (
                       'Saved-card verification'
                     )}

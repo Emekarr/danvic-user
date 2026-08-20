@@ -9,7 +9,7 @@ import {
   type VerifiedCoursePayment,
 } from '@danvic/api-client'
 import { Button, FormMessage } from '@danvic/ui'
-import { CheckCircle2, CreditCard, UserPlus, WalletCards, X } from 'lucide-react'
+import { Bell, BellOff, CheckCircle2, CreditCard, UserPlus, WalletCards, X } from 'lucide-react'
 import { CardBrandMark } from './card-brand-mark'
 
 export function PaidEnrollButton({ courseId, priceKobo }: { courseId: string; priceKobo: number }) {
@@ -170,6 +170,50 @@ export function EnrollButton({ courseId }: { courseId: string }) {
         }}
       >
         <UserPlus aria-hidden="true" /> Enroll
+      </Button>
+      <FormMessage>{error}</FormMessage>
+    </div>
+  )
+}
+
+export function CourseBookmarkButton({
+  courseId,
+  initialBookmarked = false,
+  onChange,
+}: {
+  courseId: string
+  initialBookmarked?: boolean
+  onChange?: (bookmarked: boolean) => void
+}) {
+  const [bookmarked, setBookmarked] = useState(initialBookmarked)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  return (
+    <div>
+      <Button
+        variant={bookmarked ? 'soft' : 'primary'}
+        busy={busy}
+        onClick={async () => {
+          const next = !bookmarked
+          setBusy(true)
+          setError('')
+          try {
+            await apiFetch(`/api/courses/${encodeURIComponent(courseId)}/bookmark`, {
+              method: 'PUT',
+              body: JSON.stringify({ enabled: next }),
+            })
+            setBookmarked(next)
+            onChange?.(next)
+          } catch (cause) {
+            setError(cause instanceof Error ? cause.message : 'Bookmark could not be updated')
+          } finally {
+            setBusy(false)
+          }
+        }}
+      >
+        {bookmarked ? <BellOff aria-hidden="true" /> : <Bell aria-hidden="true" />}
+        {bookmarked ? 'Remove bookmark' : 'Bookmark & remind me'}
       </Button>
       <FormMessage>{error}</FormMessage>
     </div>

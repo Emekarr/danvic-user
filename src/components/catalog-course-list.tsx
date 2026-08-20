@@ -7,15 +7,20 @@ import { apiFetch } from '@danvic/api-client'
 import { Badge, Input } from '@danvic/ui'
 import { CalendarClock, CheckCircle2, Clock3, Search, UserRound } from 'lucide-react'
 import { CourseCover } from './course-cover-display'
-import { EnrollButton, PaidEnrollButton } from './course-participation'
+import { CourseBookmarkButton, EnrollButton, PaidEnrollButton } from './course-participation'
+import { StaticRouteLink } from './static-route-link'
 
 export function CatalogCourseList({
   initialCourses,
   enrolledCourseIds,
+  bookmarkedCourseIds,
+  upcomingLiveCourseIds,
   canEnroll,
 }: {
   initialCourses: CatalogCourse[]
   enrolledCourseIds: string[]
+  bookmarkedCourseIds: string[]
+  upcomingLiveCourseIds: string[]
   canEnroll: boolean
 }) {
   const [query, setQuery] = useState('')
@@ -23,6 +28,10 @@ export function CatalogCourseList({
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState('')
   const enrolled = new Set(enrolledCourseIds)
+  const [bookmarked, setBookmarked] = useState(() => new Set(bookmarkedCourseIds))
+  const [upcomingLiveCourses, setUpcomingLiveCourses] = useState(
+    () => new Set(upcomingLiveCourseIds),
+  )
 
   useEffect(() => {
     const controller = new AbortController()
@@ -35,6 +44,19 @@ export function CatalogCourseList({
           { signal: controller.signal },
         )
         setCourses(result.courses)
+        const now = Date.now()
+        setUpcomingLiveCourses(
+          new Set(
+            result.courses
+              .filter(
+                (course) =>
+                  course.type === 'live' &&
+                  Boolean(course.scheduledAt) &&
+                  new Date(course.scheduledAt!).getTime() > now,
+              )
+              .map((course) => course.id),
+          ),
+        )
       } catch (cause) {
         if (controller.signal.aborted) return
         setError(cause instanceof Error ? cause.message : 'Courses could not be searched')
@@ -61,7 +83,9 @@ export function CatalogCourseList({
       {error ? <p className="sb-form-message">{error}</p> : null}
       {courses.length ? (
         <div className="lr-catalog-list">
-          {courses.map((course) => (
+          {courses.map((course) => {
+            const upcomingLive = upcomingLiveCourses.has(course.id)
+            return (
             <article className="lr-catalog-row" key={course.id}>
               <CourseCover course={course} className="lr-catalog-media" showFallback />
               <div className="lr-catalog-head">
@@ -79,12 +103,27 @@ export function CatalogCourseList({
                 <span>{course.accessType === 'paid' ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(course.priceKobo / 100) : 'Free'}</span>
               </div>
               <div className="lr-catalog-actions">
-                <Link href={`/authors/${course.createdByAuthorId}`} className="lr-author-link">
+                <StaticRouteLink href={`/authors/${course.createdByAuthorId}`} className="lr-author-link">
                   <UserRound aria-hidden="true" /> {course.authorName}
-                </Link>
-                <Link href={`/courses/${course.id}`} className="sb-button sb-button--secondary sb-button--md">View course</Link>
+                </StaticRouteLink>
+                <StaticRouteLink href={`/courses/${course.id}`} className="sb-button sb-button--secondary sb-button--md">View course</StaticRouteLink>
                 {enrolled.has(course.id) ? (
                   <span className="lr-enrolled-badge"><CheckCircle2 aria-hidden="true" /> Enrolled</span>
+                ) : upcomingLive && canEnroll ? (
+                  <CourseBookmarkButton
+                    courseId={course.id}
+                    initialBookmarked={bookmarked.has(course.id)}
+                    onChange={(enabled) =>
+                      setBookmarked((current) => {
+                        const next = new Set(current)
+                        if (enabled) next.add(course.id)
+                        else next.delete(course.id)
+                        return next
+                      })
+                    }
+                  />
+                ) : upcomingLive ? (
+                  <Link href={`/login?next=${encodeURIComponent(`/courses/${course.id}`)}`} className="sb-button sb-button--primary sb-button--md">Sign in to bookmark</Link>
                 ) : canEnroll ? (
                   course.accessType === 'paid' ? <PaidEnrollButton courseId={course.id} priceKobo={course.priceKobo} /> : <EnrollButton courseId={course.id} />
                 ) : (
@@ -92,7 +131,8 @@ export function CatalogCourseList({
                 )}
               </div>
             </article>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <p className="lr-course-search-empty">No courses match “{query}”.</p>

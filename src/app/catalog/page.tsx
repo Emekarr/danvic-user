@@ -10,6 +10,8 @@ import { CatalogCourseList } from '@/components/catalog-course-list'
 export default function CatalogPage() {
   const [courses, setCourses] = useState<CatalogCourse[] | null>(null)
   const [enrolled, setEnrolled] = useState<string[]>([])
+  const [bookmarked, setBookmarked] = useState<string[]>([])
+  const [upcomingLive, setUpcomingLive] = useState<string[]>([])
   const [canEnroll, setCanEnroll] = useState(false)
   useEffect(() => {
     let active = true
@@ -21,11 +23,26 @@ export default function CatalogPage() {
       apiFetch<{ student: { id: string } }>('/api/auth/me')
         .then(() => true)
         .catch(() => false),
-    ]).then(([catalog, learning, signedIn]) => {
+      apiFetch<{ bookmarks: Array<{ courseId: string; enabled: boolean }> }>(
+        '/api/course-bookmarks',
+      ).catch(() => ({ bookmarks: [] })),
+    ]).then(([catalog, learning, signedIn, saved]) => {
       if (!active) return
       setCourses(catalog.courses)
+      const now = Date.now()
+      setUpcomingLive(
+        catalog.courses
+          .filter(
+            (course) =>
+              course.type === 'live' &&
+              Boolean(course.scheduledAt) &&
+              new Date(course.scheduledAt!).getTime() > now,
+          )
+          .map((course) => course.id),
+      )
       setEnrolled(learning.enrollments.map((item) => item.enrollment.courseId))
       setCanEnroll(signedIn)
+      setBookmarked(saved.bookmarks.filter((item) => item.enabled).map((item) => item.courseId))
     })
     return () => {
       active = false
@@ -43,6 +60,8 @@ export default function CatalogPage() {
           <CatalogCourseList
             initialCourses={courses}
             enrolledCourseIds={enrolled}
+            bookmarkedCourseIds={bookmarked}
+            upcomingLiveCourseIds={upcomingLive}
             canEnroll={canEnroll}
           />
         ) : (

@@ -17,6 +17,7 @@ import {
   Volume2,
 } from 'lucide-react'
 import { CompleteModuleButton } from './course-participation'
+import { StaticRouteLink } from './static-route-link'
 
 type AttachmentKind = 'image' | 'video' | 'audio' | 'link' | 'file'
 
@@ -119,9 +120,9 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
     <main className="lr-study-player">
       <header className="lr-study-player-head">
         <div className="lr-study-course-heading">
-          <Link href={`/courses/${course.id}`} className="sb-button sb-button--ghost sb-button--sm">
+          <StaticRouteLink href={`/courses/${course.id}`} className="sb-button sb-button--ghost sb-button--sm">
             <ChevronLeft aria-hidden="true" /> Back to course
-          </Link>
+          </StaticRouteLink>
           <h1>{course.name}</h1>
         </div>
         <div className="lr-study-player-actions">
