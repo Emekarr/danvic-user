@@ -11,6 +11,7 @@ type Bootstrap = {
   uid: number
   rtcToken: string
   whiteboard: WhiteboardJoinConfig | null
+  whiteboardActive: boolean
 }
 
 export function WebRecorder({ sessionId, token }: { sessionId: string; token: string }) {
@@ -65,12 +66,15 @@ export function WebRecorder({ sessionId, token }: { sessionId: string; token: st
         </span>
       </header>
       <div className="lc-recorder-layout">
-        <section className="lc-video-grid">
-          {videos.map((video) => (
-            <RecordedVideo key={video.uid} value={video} />
-          ))}
-        </section>
-        {config.whiteboard && <RecorderWhiteboard config={config.whiteboard} />}
+        {config.whiteboardActive && config.whiteboard ? (
+          <RecorderWhiteboard config={config.whiteboard} />
+        ) : (
+          <section className="lc-video-grid">
+            {videos.map((video) => (
+              <RecordedVideo key={video.uid} value={video} />
+            ))}
+          </section>
+        )}
       </div>
     </main>
   )
