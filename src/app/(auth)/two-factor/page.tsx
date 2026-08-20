@@ -4,8 +4,6 @@ import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { TwoFactorForm } from '@/components/student-auth'
 
-export const metadata = { title: 'Two-factor verification' }
-
 export default function Page() {
   return (
     <Suspense

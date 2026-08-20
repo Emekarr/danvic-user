@@ -5,8 +5,6 @@ import { useSearchParams } from 'next/navigation'
 import { apiFetch, tokenSchema } from '@danvic/api-client'
 import { AcceptExistingInvitation, AcceptInvitationForm } from '@/components/student-auth'
 
-export const metadata = { title: 'Accept course invitation' }
-
 export default function Page() {
   return (
     <Suspense

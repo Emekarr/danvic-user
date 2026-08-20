@@ -4,8 +4,6 @@ import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { LoginForm } from '@/components/student-auth'
 
-export const metadata = { title: 'Student sign in' }
-
 export default function Page() {
   return (
     <Suspense
