@@ -342,24 +342,14 @@ export function CourseView({ courseId }: { courseId: string }) {
                   </Link>
                 ) : null}
                 {course.type === 'live' ? (
-                  state.session?.status === 'live' ? (
-                    <Link
-                      href={courseHref(course.id, 'live')}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="sb-button sb-button--primary sb-button--md"
-                    >
-                      <Radio /> Join class
-                    </Link>
-                  ) : (
-                    <span
-                      className="sb-button sb-button--soft sb-button--md"
-                      aria-disabled="true"
-                      title="The class can be joined once the author starts it."
-                    >
-                      <Radio /> Join class
-                    </span>
-                  )
+                  <Link
+                    href={courseHref(course.id, 'live')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="sb-button sb-button--primary sb-button--md"
+                  >
+                    <Radio /> Join class
+                  </Link>
                 ) : null}
                 {state.recordings.length ? (
                   <Link
