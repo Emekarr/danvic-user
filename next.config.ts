@@ -5,12 +5,15 @@ const config: NextConfig = {
   outputFileTracingRoot: __dirname,
   poweredByHeader: false,
   transpilePackages: ['@danvic/ui', '@danvic/api-client'],
-  webpack: (webpackConfig) => {
-    webpackConfig.resolve.alias = {
-      ...webpackConfig.resolve.alias,
-      'agora-foundation': false,
-    }
-    return webpackConfig
+  env: {
+    NEXT_PUBLIC_DANVIC_APP: 'student',
+  },
+  turbopack: {
+    resolveAlias: {
+      'agora-foundation/lib/logger': './src/lib/agora-foundation-empty.ts',
+      'agora-foundation/lib/logger/common': './src/lib/agora-foundation-empty.ts',
+      'agora-foundation/package.json': './src/lib/agora-foundation-empty.ts',
+    },
   },
 }
 

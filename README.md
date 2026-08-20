@@ -16,8 +16,10 @@ The production files are written to `out/`. The included `_redirects` file provi
 - Framework preset: **Next.js (Static HTML Export)**
 - Build command: `npm run build`
 - Build output directory: `out`
-- Environment variables:
-  - `NEXT_PUBLIC_BACKEND_API_URL=https://your-backend.example.com`
-  - `NEXT_PUBLIC_DANVIC_APP=student`
+- Environment variable: `NEXT_PUBLIC_BACKEND_API_URL=https://your-backend.example.com`
+
+The learner API namespace is fixed to `student` by the project configuration. Do not add a
+`NEXT_PUBLIC_DANVIC_APP` variable in Cloudflare Pages; stale values such as `user` point to a
+backend route that does not exist.
 
 Deploy the contents of `out/`; do not use a Pages Functions or Workers adapter for this project.
