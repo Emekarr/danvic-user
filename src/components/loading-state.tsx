@@ -1,4 +1,5 @@
 import { LoaderCircle } from 'lucide-react'
+import { AppShell } from '@danvic/ui'
 
 export function LoadingState({ label }: { label: string }) {
   return (
@@ -14,12 +15,15 @@ export function LoadingState({ label }: { label: string }) {
 
 export function LearnerShellLoading({ label }: { label: string }) {
   return (
-    <main className="lr-shell-loading" role="status" aria-live="polite">
-      <div className="lr-shell-loading-brand" aria-hidden="true">
-        <span className="sb-brand-mark" />
-        <strong>DANVIC</strong>
-      </div>
-      <LoadingState label={label} />
-    </main>
+    <div className="lr-loading-shell" aria-busy="true">
+      <AppShell
+        kind="learner"
+        displayName="DANVIC learner"
+        email=""
+        authenticated={false}
+      >
+        <LoadingState label={label} />
+      </AppShell>
+    </div>
   )
 }

@@ -622,7 +622,7 @@ export function RecordingsView({ courseId }: { courseId: string }) {
   if (loading)
     return (
       <LearnerAppShell>
-        <p className="ad-empty-line">Loading class recordings…</p>
+        <LoadingState label="Loading class recordings…" />
       </LearnerAppShell>
     )
   if (error)
@@ -777,9 +777,20 @@ export function AssessmentStartView({ assessmentId }: { assessmentId: string }) 
     if (assessment?.attempt && assessment.attempt.status !== 'in_progress')
       router.replace(`/assessment-attempts/${assessment.attempt.id}`)
   }, [assessment, router])
-  if (loading) return <p className="ad-empty-line">Loading the assessment…</p>
+  if (loading)
+    return (
+      <LearnerAppShell>
+        <LoadingState label="Loading the assessment…" />
+      </LearnerAppShell>
+    )
   if (error || !assessment)
-    return <p className="ad-empty-line" data-tone="error">{error || 'Could not load the assessment.'}</p>
+    return (
+      <LearnerAppShell>
+        <p className="ad-empty-line" data-tone="error">
+          {error || 'Could not load the assessment.'}
+        </p>
+      </LearnerAppShell>
+    )
   if (assessment.attempt?.status === 'in_progress') {
     return (
       <LearnerAppShell>
@@ -847,7 +858,7 @@ export function AssessmentAttemptView({ attemptId }: { attemptId: string }) {
   if (loading)
     return (
       <LearnerAppShell>
-        <p className="ad-empty-line">Loading your submission…</p>
+        <LoadingState label="Loading your submission…" />
       </LearnerAppShell>
     )
   if (error || !data)
@@ -1075,7 +1086,7 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
   if (verification.loading)
     return (
       <LearnerAppShell>
-        <p className="ad-empty-line">Verifying the certificate…</p>
+        <LoadingState label="Verifying the certificate…" />
       </LearnerAppShell>
     )
   const recognized = Boolean(verification.data?.recognized)
@@ -1258,7 +1269,7 @@ export function AuthorView({ authorId }: { authorId: string }) {
   if (loading)
     return (
       <LearnerAppShell>
-        <p className="ad-empty-line">Loading the author profile…</p>
+        <LoadingState label="Loading the author profile…" />
       </LearnerAppShell>
     )
   if (error || !data)

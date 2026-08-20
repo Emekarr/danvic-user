@@ -8,9 +8,6 @@ import { LoadingState } from '@/components/loading-state'
 export default function CoursesPage() {
   const { data, loading, error } = useEnrollments()
 
-  if (loading) return <LoadingState label="Loading your enrolled courses…" />
-  if (error) return <p className="ad-empty-line" data-tone="error">{error}</p>
-
   const items = data ?? []
   return (
     <div>
@@ -36,7 +33,13 @@ export default function CoursesPage() {
             </p>
           </div>
         </div>
-        <EnrolledCourseList items={items} />
+        {loading ? (
+          <LoadingState label="Loading your enrolled courses…" />
+        ) : error ? (
+          <p className="ad-empty-line" data-tone="error">{error}</p>
+        ) : (
+          <EnrolledCourseList items={items} />
+        )}
       </section>
     </div>
   )

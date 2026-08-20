@@ -10,13 +10,30 @@ export default function ProfilePage() {
   const studentState = useStudent()
   const enrollmentsState = useEnrollments()
 
+  const header = (
+    <PageHeader
+      eyebrow="Learner"
+      title={studentState.student
+        ? `${studentState.student.firstName} ${studentState.student.lastName}`
+        : 'Your profile'}
+      description={studentState.student?.email ?? 'Your DANVIC learner account.'}
+    />
+  )
   if (studentState.loading || enrollmentsState.loading)
-    return <LoadingState label="Loading your profile…" />
+    return (
+      <div className="lr-profile-page">
+        {header}
+        <LoadingState label="Loading your profile…" />
+      </div>
+    )
   if (studentState.error || enrollmentsState.error || !studentState.student)
     return (
-      <p className="ad-empty-line" data-tone="error">
-        {studentState.error || enrollmentsState.error || 'Could not load your profile.'}
-      </p>
+      <div className="lr-profile-page">
+        {header}
+        <p className="ad-empty-line" data-tone="error">
+          {studentState.error || enrollmentsState.error || 'Could not load your profile.'}
+        </p>
+      </div>
     )
 
   const student = studentState.student
@@ -39,11 +56,7 @@ export default function ProfilePage() {
       : `${firstName} is enrolled in ${enrollments.length} course${enrollments.length === 1 ? '' : 's'} and has completed ${completed} so far. Keep learning, track your progress, and return here to see the record grow.`
   return (
     <div className="lr-profile-page">
-      <PageHeader
-        eyebrow="Learner"
-        title={`${student.firstName} ${student.lastName}`}
-        description={student.email}
-      />
+      {header}
       <section className="lr-section lr-profile-bio" aria-labelledby="learning-bio-title">
         <div className="lr-section-heading">
           <div>

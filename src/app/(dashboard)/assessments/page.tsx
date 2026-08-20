@@ -9,9 +9,6 @@ import { LoadingState } from '@/components/loading-state'
 export default function AssessmentsPage() {
   const { data, loading, error } = useAssessments()
 
-  if (loading) return <LoadingState label="Loading your assessments…" />
-  if (error) return <p className="ad-empty-line" data-tone="error">{error}</p>
-
   const assessments = data ?? []
   return (
     <>
@@ -20,7 +17,11 @@ export default function AssessmentsPage() {
         title="Your assessments"
         description="Take standalone assessments or complete the final step in an enrolled course."
       />
-      {assessments.length ? (
+      {loading ? (
+        <LoadingState label="Loading your assessments…" />
+      ) : error ? (
+        <p className="ad-empty-line" data-tone="error">{error}</p>
+      ) : assessments.length ? (
         <div className="lr-assessment-list">
           {assessments.map((assessment) => {
             const status = assessment.attempt?.status ?? assessment.availability ?? 'scheduled'

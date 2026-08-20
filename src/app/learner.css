@@ -39,27 +39,8 @@
   width: 100%;
   min-width: 0;
 }
-.lr-shell-loading {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
-  padding: 32px;
-  background:
-    linear-gradient(90deg, #f8fafc 0 232px, #fff 232px),
-    #fff;
-}
-.lr-shell-loading-brand {
-  position: fixed;
-  top: 24px;
-  left: 22px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #172033;
-  letter-spacing: 0.04em;
-}
-.lr-shell-loading-brand .sb-brand-mark {
-  display: inline-block;
+.lr-loading-shell .sb-user-menu {
+  visibility: hidden;
 }
 .lr-loading-state {
   display: flex;
@@ -95,11 +76,6 @@
 @media (prefers-reduced-motion: reduce) {
   .lr-loading-spinner {
     animation-duration: 1.8s;
-  }
-}
-@media (max-width: 760px) {
-  .lr-shell-loading {
-    background: #fff;
   }
 }
 .sb-app-shell[data-kind='learner'] .sb-page-header {

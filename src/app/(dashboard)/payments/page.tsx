@@ -13,9 +13,19 @@ import { courseHref } from '@/lib/course-route'
 
 export default function Page() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<><PaymentsHeader /><LoadingState label="Loading your payment history…" /></>}>
       <PaymentsPage />
     </Suspense>
+  )
+}
+
+function PaymentsHeader() {
+  return (
+    <PageHeader
+      eyebrow="Billing"
+      title="Payments"
+      description="Manage reusable cards and review your transaction history."
+    />
   )
 }
 
@@ -23,23 +33,24 @@ function PaymentsPage() {
   const query = useSearchParams()
   const paymentsState = usePayments()
   const enrollmentsState = useEnrollments()
+  const header = <PaymentsHeader />
 
   if (paymentsState.loading || enrollmentsState.loading)
-    return <LoadingState label="Loading your payment history…" />
+    return <>{header}<LoadingState label="Loading your payment history…" /></>
   if (paymentsState.error || enrollmentsState.error)
     return (
-      <p className="ad-empty-line" data-tone="error">
-        {paymentsState.error || enrollmentsState.error}
-      </p>
+      <>{header}<p className="ad-empty-line" data-tone="error">
+          {paymentsState.error || enrollmentsState.error}
+        </p></>
     )
 
   const payments = paymentsState.data
   const enrollments = enrollmentsState.data ?? []
   if (!payments)
     return (
-      <p className="ad-empty-line" data-tone="error">
-        Could not load your payment history.
-      </p>
+      <>{header}<p className="ad-empty-line" data-tone="error">
+          Could not load your payment history.
+        </p></>
     )
   const courseNames = new Map(
     enrollments
@@ -52,11 +63,7 @@ function PaymentsPage() {
   const refund = query.get('refund')
   return (
     <>
-      <PageHeader
-        eyebrow="Billing"
-        title="Payments"
-        description="Manage reusable cards and review your transaction history."
-      />
+      {header}
       {card ? (
         <div className="lr-payments-banner">
           <Badge tone={card === 'saved' ? 'green' : 'violet'} dot>

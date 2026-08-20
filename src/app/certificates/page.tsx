@@ -6,12 +6,10 @@ import { ArrowRight, Award } from 'lucide-react'
 import { LearnerAppShell } from '@/components/learner-app-shell'
 import { useEnrollments } from '@/lib/data'
 import { StaticRouteLink } from '@/components/static-route-link'
+import { LoadingState } from '@/components/loading-state'
 
 export default function CertificatesPage() {
   const { data, loading, error } = useEnrollments()
-  if (loading) return <p className="ad-empty-line">Loading your certificates…</p>
-  if (error) return <p className="ad-empty-line" data-tone="error">{error}</p>
-
   const enrollments = data ?? []
   const certificates = enrollments
     .map((item) => ({ certificate: item.certificate, course: item.course }))
@@ -27,7 +25,11 @@ export default function CertificatesPage() {
           title="Your certificates"
           description="Verified certificates issued for the DANVIC courses you have completed."
         />
-        {certificates.length ? (
+        {loading ? (
+          <LoadingState label="Loading your certificates…" />
+        ) : error ? (
+          <p className="ad-empty-line" data-tone="error">{error}</p>
+        ) : certificates.length ? (
           <div className="lr-cert-list">
             {certificates.map(({ certificate, course }) => (
               <StaticRouteLink
