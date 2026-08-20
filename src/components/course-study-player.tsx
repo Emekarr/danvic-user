@@ -18,6 +18,7 @@ import {
   Volume2,
 } from 'lucide-react'
 import { CompleteModuleButton } from './course-participation'
+import { CourseAttachmentAccess } from './course-attachment-access'
 import { courseHref } from '@/lib/course-route'
 
 type AttachmentKind = 'image' | 'video' | 'audio' | 'link' | 'file'
@@ -71,12 +72,10 @@ function Resources({
         <ul>
           {attachments.map((attachment, index) => {
             const kind = attachmentKind(attachment.attachmentPath)
-            const external = kind === 'link' || kind === 'file'
+            const external = kind === 'link'
             const fileName = attachment.attachmentPath.split('/').at(-1)?.split('?')[0] ?? ''
             const name = attachment.fileName || `${resourceLabel(kind)} material ${index + 1}`
-            const href = external
-              ? attachment.attachmentPath
-              : courseHref(courseId, 'attachment', attachment.id)
+            const href = attachment.attachmentPath
             return (
               <li key={attachment.id}>
                 {external ? (
@@ -88,8 +87,16 @@ function Resources({
                     </span>
                     <ExternalLink aria-hidden="true" />
                   </a>
+                ) : kind === 'file' ? (
+                  <CourseAttachmentAccess
+                    courseId={courseId}
+                    attachmentId={attachment.id}
+                    name={name || fileName}
+                    icon={resourceIcon(kind)}
+                    detail={`${resourceLabel(kind)} · Choose view or download`}
+                  />
                 ) : (
-                  <Link href={href} className="lr-resource-link">
+                  <Link href={courseHref(courseId, 'attachment', attachment.id)} className="lr-resource-link">
                     <span className="lr-resource-icon" data-kind={kind}>{resourceIcon(kind)}</span>
                     <span className="lr-resource-copy">
                       <strong>{name || fileName}</strong>

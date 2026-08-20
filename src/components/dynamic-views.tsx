@@ -312,10 +312,14 @@ export function CourseView({ courseId }: { courseId: string }) {
             description={`${course.durationMinutes} minutes of structured learning.`}
             actions={
               <>
-                <Badge tone={course.type === 'live' ? 'violet' : 'blue'}>{course.type}</Badge>
-                <Badge tone={enrollment.completedAt ? 'green' : 'blue'} dot>
-                  {enrollment.completedAt ? 'Completed' : 'Enrolled'}
-                </Badge>
+                <span className="lr-course-type">
+                  <Badge tone={course.type === 'live' ? 'violet' : 'blue'}>{course.type}</Badge>
+                </span>
+                <span className="lr-course-status">
+                  <Badge tone={enrollment.completedAt ? 'green' : 'blue'} dot>
+                    {enrollment.completedAt ? 'Completed' : 'Enrolled'}
+                  </Badge>
+                </span>
                 <span
                   className="lr-course-progress"
                   aria-label={`${progressPercent}% course progress`}
@@ -336,7 +340,7 @@ export function CourseView({ courseId }: { courseId: string }) {
                 {course.type !== 'live' ? (
                   <Link
                     href={courseHref(course.id, 'study')}
-                    className="sb-button sb-button--primary sb-button--md"
+                    className="sb-button sb-button--primary sb-button--md lr-course-resume"
                   >
                     Resume studying
                   </Link>
@@ -1254,6 +1258,27 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
       </div>
     </LearnerAppShell>
   )
+}
+
+export function CertificateRouteView() {
+  const query = useSearchParams()
+  const certificateNumber = query.get('number') ?? ''
+  if (!certificateNumberSchema.safeParse(certificateNumber).success)
+    return (
+      <LearnerAppShell>
+        <EmptyState
+          icon={<ShieldX aria-hidden="true" />}
+          title="Certificate not recognised"
+          description="No DANVIC certificate matches this certificate number."
+          action={
+            <Link href="/verify-certificate" className="sb-button sb-button--primary sb-button--md">
+              Verify a certificate
+            </Link>
+          }
+        />
+      </LearnerAppShell>
+    )
+  return <CertificateView certificateNumber={certificateNumber} />
 }
 
 type SocialNetwork = 'linkedin' | 'x' | 'instagram' | 'facebook' | 'website'

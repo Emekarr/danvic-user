@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import type { Certificate } from '@danvic/api-client'
 import { apiFetch, apiUrl } from '@danvic/api-client'
 import { Button, Field, FormMessage, Input } from '@danvic/ui'
@@ -11,7 +12,7 @@ export function CertificateActions({ certificate }: { certificate: Certificate }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const publicPath = `/certificates/${encodeURIComponent(certificate.certificateNumber)}`
+  const publicPath = `/certificate?number=${encodeURIComponent(certificate.certificateNumber)}`
   const downloadPath = apiUrl(
     `/api/certificate-verification/${encodeURIComponent(certificate.certificateNumber)}/pdf?download=1`,
   )
@@ -19,14 +20,12 @@ export function CertificateActions({ certificate }: { certificate: Certificate }
   return (
     <div className="cert-actions-wrap">
       <div className="cert-actions">
-        <a
+        <Link
           href={publicPath}
-          target="_blank"
-          rel="noreferrer"
           className="sb-button sb-button--primary sb-button--md"
         >
           <ExternalLink aria-hidden="true" /> View certificate
-        </a>
+        </Link>
         <a href={downloadPath} download className="sb-button sb-button--secondary sb-button--md">
           <Download aria-hidden="true" /> Download
         </a>
