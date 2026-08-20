@@ -591,18 +591,30 @@ export function StudyView({ courseId }: { courseId: string }) {
 }
 
 export function LiveView({ courseId }: { courseId: string }) {
-  const router = useRouter()
   const { data, loading, error } = useLiveSession(courseId)
-  useEffect(() => {
-    if (error || !data?.session || data.session.status !== 'live')
-      router.replace(courseHref(courseId))
-  }, [error, data, router, courseId])
   if (loading) return <LearnerShellLoading label="Checking the live session…" />
-  if (error || !data?.session)
+  if (error || !data?.session || data.session.status !== 'live')
     return (
-      <p className="ad-empty-line" data-tone="error">
-        {error || 'The live session is not available.'}
-      </p>
+      <LearnerAppShell>
+        <EmptyState
+          icon={<Radio aria-hidden="true" />}
+          title="The class is not live"
+          description={
+            error ||
+            (data?.session?.status === 'ended'
+              ? 'This live class has ended.'
+              : 'The author has not started this live class yet.')
+          }
+          action={
+            <Link
+              href={courseHref(courseId)}
+              className="sb-button sb-button--secondary sb-button--md"
+            >
+              Back to course
+            </Link>
+          }
+        />
+      </LearnerAppShell>
     )
   return <StudentLiveClassroom sessionId={data.session.id} />
 }
