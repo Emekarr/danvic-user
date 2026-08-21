@@ -94,8 +94,9 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
   const activeParticipants = (state?.participants ?? []).filter((participant) => !participant.leftAt)
   const otherParticipantCount = activeParticipants.filter((participant) => participant.id !== join.participant.id).length
   const hasOtherParticipants = otherParticipantCount > 0 || rtc.remoteVideos.length > 0
-  const visibleParticipantCount = Math.max(activeParticipants.length, rtc.remoteVideos.length + 1)
-  const tutorOnline = activeParticipants.some((participant) => participant.actorType === 'author') || (!state && rtc.remoteVideos.length > 0)
+  const tutorOnline = activeParticipants.some((participant) => participant.actorType === 'author')
+  const otherStudentsOnline = activeParticipants.some((participant) => participant.actorType === 'student' && participant.id !== join.participant.id)
+  const learnerPresenceLabel = otherStudentsOnline ? 'Other people are online' : tutorOnline ? 'Author is online' : 'Waiting for author'
   const refresh = useCallback(async () => {
     try {
       const value = await api<LiveState>(`/api/live/live-sessions/${join.session.id}/state`)
@@ -216,7 +217,7 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
       {error && <p className="lc-error" role="alert">{error}</p>}
       <div className="lc-layout">
         <section className={`lc-stage${showWhiteboard ? ' lc-stage--whiteboard' : ''}`}>
-          <div className={`lc-tutor-presence${tutorOnline ? ' is-online' : ''}`} aria-live="polite"><span />{tutorOnline ? 'Tutor online' : 'Waiting for tutor'}</div>
+          <div className={`lc-tutor-presence${tutorOnline || otherStudentsOnline ? ' is-online' : ''}`} aria-live="polite"><span />{learnerPresenceLabel}</div>
           {showWhiteboard && join.whiteboard ? (
             <Whiteboard config={join.whiteboard} uid={`student-${join.participant.actorId}`} />
           ) : (
@@ -226,14 +227,14 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
               ) : !hasOtherParticipants ? (
                 <div className="lc-alone-state">
                   <Users />
-                  <strong>Waiting for your tutor</strong>
+                  <strong>Waiting for the author</strong>
                   <span>Audio, video and shared screens will appear automatically.</span>
                 </div>
               ) : (
                 <div className="lc-alone-state lc-presence-state">
                   <Users />
-                  <strong>{tutorOnline ? 'Your tutor is online' : `${visibleParticipantCount} people are in class`}</strong>
-                  <span>{tutorOnline ? `${visibleParticipantCount} people are connected. No one is sharing a camera or screen right now.` : 'Other attendees are connected. The class will begin when your tutor joins.'}</span>
+                  <strong>{otherStudentsOnline ? 'Other people are online' : 'Author is online'}</strong>
+                  <span>{otherStudentsOnline ? (tutorOnline ? 'The author and other attendees are connected.' : 'Other attendees are connected. The class will begin when the author joins.') : 'The author has joined. No one is sharing a camera or screen right now.'}</span>
                 </div>
               )}
               {self?.canPublish && (
@@ -671,7 +672,6 @@ function Participants({ participants }: { participants: LiveParticipant[] }) {
   return (
     <section className="lc-panel lc-participant-panel">
       <div className="lc-panel-heading">
-        <h3><Users /> People</h3>
         <span>{active.length} in class</span>
       </div>
       <div className="lc-participants">

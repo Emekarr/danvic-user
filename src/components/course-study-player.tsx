@@ -20,6 +20,7 @@ import {
 import { CompleteModuleButton } from './course-participation'
 import { CourseAttachmentAccess } from './course-attachment-access'
 import { courseHref } from '@/lib/course-route'
+import { ModuleContent } from './module-content'
 
 type AttachmentKind = 'image' | 'video' | 'audio' | 'link' | 'file'
 
@@ -80,7 +81,9 @@ function Resources({
               <li key={attachment.id}>
                 {external ? (
                   <a href={href} target="_blank" rel="noreferrer" className="lr-resource-link">
-                    <span className="lr-resource-icon" data-kind={kind}>{resourceIcon(kind)}</span>
+                    <span className="lr-resource-icon" data-kind={kind}>
+                      {resourceIcon(kind)}
+                    </span>
                     <span className="lr-resource-copy">
                       <strong>{name || fileName}</strong>
                       <small>{resourceLabel(kind)} · Opens in a new tab</small>
@@ -96,8 +99,13 @@ function Resources({
                     detail={`${resourceLabel(kind)} · Choose view or download`}
                   />
                 ) : (
-                  <Link href={courseHref(courseId, 'attachment', attachment.id)} className="lr-resource-link">
-                    <span className="lr-resource-icon" data-kind={kind}>{resourceIcon(kind)}</span>
+                  <Link
+                    href={courseHref(courseId, 'attachment', attachment.id)}
+                    className="lr-resource-link"
+                  >
+                    <span className="lr-resource-icon" data-kind={kind}>
+                      {resourceIcon(kind)}
+                    </span>
                     <span className="lr-resource-copy">
                       <strong>{name || fileName}</strong>
                       <small>{resourceLabel(kind)} · View only</small>
@@ -109,7 +117,9 @@ function Resources({
             )
           })}
         </ul>
-      ) : <p className="lr-module-resources-empty">{emptyCopy}</p>}
+      ) : (
+        <p className="lr-module-resources-empty">{emptyCopy}</p>
+      )}
     </section>
   )
 }
@@ -122,7 +132,9 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
   const [activeIndex, setActiveIndex] = useState(0)
   const materialsRef = useRef<HTMLElement>(null)
   const active = modules[activeIndex]
-  const locked = active ? modules.slice(0, activeIndex).some((module) => !completed.has(module.id)) : false
+  const locked = active
+    ? modules.slice(0, activeIndex).some((module) => !completed.has(module.id))
+    : false
   const courseAttachments = attachments.filter((attachment) => !attachment.moduleId)
   const moduleAttachments = active
     ? attachments.filter((attachment) => attachment.moduleId === active.id)
@@ -148,7 +160,9 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
           >
             Go to course materials <ArrowDown aria-hidden="true" />
           </a>
-          <span>{completed.size}/{modules.length} complete</span>
+          <span>
+            {completed.size}/{modules.length} complete
+          </span>
         </div>
       </header>
       <div className="lr-study-player-body">
@@ -161,19 +175,19 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
                 onChange={(value) => setActiveIndex(Number(value))}
                 options={modules.map((module, index) => {
                   const isComplete = completed.has(module.id)
-                  const isLocked = modules.slice(0, index).some((previous) => !completed.has(previous.id))
-                  return (
-                    {
-                      value: String(index),
-                      label: `Module ${index + 1}: ${module.title}`,
-                      description: isComplete
-                        ? 'Completed'
-                        : isLocked
-                          ? 'Complete earlier modules first'
-                          : 'Ready to study',
-                      disabled: isLocked,
-                    }
-                  )
+                  const isLocked = modules
+                    .slice(0, index)
+                    .some((previous) => !completed.has(previous.id))
+                  return {
+                    value: String(index),
+                    label: `Module ${index + 1}: ${module.title}`,
+                    description: isComplete
+                      ? 'Completed'
+                      : isLocked
+                        ? 'Complete earlier modules first'
+                        : 'Ready to study',
+                    disabled: isLocked,
+                  }
                 })}
               />
             </div>
@@ -181,13 +195,19 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
           <article className="lr-study-lesson">
             {active ? (
               <>
-                <p className="lr-course-section-eyebrow">Module {activeIndex + 1} of {modules.length}</p>
+                <p className="lr-course-section-eyebrow">
+                  Module {activeIndex + 1} of {modules.length}
+                </p>
                 <h2>{active.title}</h2>
                 {locked ? (
-                  <p className="lr-study-locked"><LockKeyhole aria-hidden="true" /> Complete earlier modules to open this lesson.</p>
+                  <p className="lr-study-locked">
+                    <LockKeyhole aria-hidden="true" /> Complete earlier modules to open this lesson.
+                  </p>
                 ) : (
                   <>
-                    <div className="lr-study-content">{active.content}</div>
+                    <div className="lr-study-content">
+                      <ModuleContent value={active.content} />
+                    </div>
                     <CompleteModuleButton
                       courseId={course.id}
                       moduleId={active.id}
@@ -203,10 +223,17 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
                   </>
                 )}
                 <div className="lr-study-pagination">
-                  <Button variant="ghost" disabled={activeIndex === 0} onClick={() => setActiveIndex((index) => index - 1)}>
+                  <Button
+                    variant="ghost"
+                    disabled={activeIndex === 0}
+                    onClick={() => setActiveIndex((index) => index - 1)}
+                  >
                     <ChevronLeft aria-hidden="true" /> Previous
                   </Button>
-                  <Button disabled={activeIndex === modules.length - 1 || !completed.has(active.id)} onClick={() => setActiveIndex((index) => index + 1)}>
+                  <Button
+                    disabled={activeIndex === modules.length - 1 || !completed.has(active.id)}
+                    onClick={() => setActiveIndex((index) => index + 1)}
+                  >
                     Next <ChevronRight aria-hidden="true" />
                   </Button>
                 </div>
@@ -218,9 +245,19 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
                 <h2>Course materials</h2>
                 <p>Resources for this course and the current learning module.</p>
               </div>
-              <Resources attachments={courseAttachments} courseId={course.id} heading="Course-wide materials" emptyCopy="No course-wide materials were added." />
+              <Resources
+                attachments={courseAttachments}
+                courseId={course.id}
+                heading="Course-wide materials"
+                emptyCopy="No course-wide materials were added."
+              />
               {active ? (
-                <Resources attachments={moduleAttachments} courseId={course.id} heading={`Module ${activeIndex + 1} materials`} emptyCopy="No supporting material was added to this module." />
+                <Resources
+                  attachments={moduleAttachments}
+                  courseId={course.id}
+                  heading={`Module ${activeIndex + 1} materials`}
+                  emptyCopy="No supporting material was added to this module."
+                />
               ) : null}
             </section>
           </article>
