@@ -469,24 +469,20 @@ export function CourseView({ courseId }: { courseId: string }) {
     const upcomingLive = state.upcomingLive
     return (
       <LearnerAppShell student={viewer ?? null}>
-        <div>
+        <div className="lr-course-preview">
           <PageHeader
             eyebrow={course.type === 'live' ? 'Live course' : 'Premade course'}
             title={course.name}
             description={`${course.durationMinutes} minutes across ${modules.length} module${modules.length === 1 ? '' : 's'}. Explore the outline before enrolling.`}
             actions={
-              <>
-                <Badge tone={course.type === 'live' ? 'violet' : 'blue'}>{course.type}</Badge>
-                <Badge tone={upcomingLive ? 'violet' : 'green'} dot>
-                  {upcomingLive ? 'Scheduled' : 'Available'}
-                </Badge>
-                <Badge tone={course.accessType === 'paid' ? 'green' : 'blue'}>
-                  {course.accessType === 'paid' ? formatNaira(course.priceKobo) : 'Free'}
-                </Badge>
-              </>
+              <span className="lr-course-preview-labels">
+                <span>{course.type === 'live' ? 'Live course' : 'Premade course'}</span>
+                <span>{upcomingLive ? 'Scheduled' : 'Available'}</span>
+                <span>{course.accessType === 'paid' ? formatNaira(course.priceKobo) : 'Free'}</span>
+              </span>
             }
           />
-          <div className="sb-course-meta" style={{ marginBottom: 28 }}>
+          <div className="sb-course-meta lr-course-preview-meta">
             <span>
               <Clock3 aria-hidden="true" /> {course.durationMinutes} minutes
             </span>
@@ -504,8 +500,8 @@ export function CourseView({ courseId }: { courseId: string }) {
           >
             Meet the course author
           </StaticRouteLink>
-          <Card className="sb-card-body" style={{ marginBottom: 28 }}>
-            <div className="sb-list-row">
+          <section className="lr-course-preview-access">
+            <div className="lr-course-preview-access-content">
               <div>
                 <h2>{upcomingLive ? 'Save your place' : 'Ready to participate?'}</h2>
                 <p>
@@ -550,19 +546,19 @@ export function CourseView({ courseId }: { courseId: string }) {
                 </Link>
               )}
             </div>
-          </Card>
-          <div className="sb-module-list">
+          </section>
+          <section className="lr-course-preview-modules" aria-label="Course modules">
             {modules.map((module, index) => (
-              <Card className="sb-module" key={module.id}>
+              <article className="lr-course-preview-module" key={module.id}>
                 <p className="sb-module-index">Module {index + 1}</p>
                 <h2>{module.title}</h2>
                 <p className="sb-module-content">
                   <LockKeyhole aria-hidden="true" /> Sign in and enroll to read this module’s
                   writeup.
                 </p>
-              </Card>
+              </article>
             ))}
-          </div>
+          </section>
         </div>
       </LearnerAppShell>
     )
