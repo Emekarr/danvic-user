@@ -95,6 +95,7 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
   const otherParticipantCount = activeParticipants.filter((participant) => participant.id !== join.participant.id).length
   const hasOtherParticipants = otherParticipantCount > 0 || rtc.remoteVideos.length > 0
   const visibleParticipantCount = Math.max(activeParticipants.length, rtc.remoteVideos.length + 1)
+  const tutorOnline = activeParticipants.some((participant) => participant.actorType === 'author') || (!state && rtc.remoteVideos.length > 0)
   const refresh = useCallback(async () => {
     try {
       const value = await api<LiveState>(`/api/live/live-sessions/${join.session.id}/state`)
@@ -215,6 +216,7 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
       {error && <p className="lc-error" role="alert">{error}</p>}
       <div className="lc-layout">
         <section className={`lc-stage${showWhiteboard ? ' lc-stage--whiteboard' : ''}`}>
+          <div className={`lc-tutor-presence${tutorOnline ? ' is-online' : ''}`} aria-live="polite"><span />{tutorOnline ? 'Tutor online' : 'Waiting for tutor'}</div>
           {showWhiteboard && join.whiteboard ? (
             <Whiteboard config={join.whiteboard} uid={`student-${join.participant.actorId}`} />
           ) : (
@@ -230,8 +232,8 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
               ) : (
                 <div className="lc-alone-state lc-presence-state">
                   <Users />
-                  <strong>{visibleParticipantCount} people are in class</strong>
-                  <span>No one is sharing a camera or screen right now. Class audio continues automatically.</span>
+                  <strong>{tutorOnline ? 'Your tutor is online' : `${visibleParticipantCount} people are in class`}</strong>
+                  <span>{tutorOnline ? `${visibleParticipantCount} people are connected. No one is sharing a camera or screen right now.` : 'Other attendees are connected. The class will begin when your tutor joins.'}</span>
                 </div>
               )}
               {self?.canPublish && (
@@ -695,21 +697,57 @@ function Participants({ participants }: { participants: LiveParticipant[] }) {
 }
 function Chat({ sessionId, messages, currentActorType }: { sessionId: string; messages: LiveMessage[]; currentActorType: LiveMessage['actorType'] }) {
   const [body, setBody] = useState('')
-  const send = async (kind: 'chat' | 'reaction', value: string) => {
-    if (!value.trim()) return
-    await api(`/api/live/live-sessions/${sessionId}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({ kind, body: value }),
-    })
+  const [outgoing, setOutgoing] = useState<Array<{ message: LiveMessage; status: 'sending' | 'sent' | 'failed' }>>([])
+  const messageListRef = useRef<HTMLDivElement>(null)
+  const send = async (value: string) => {
+    const text = value.trim()
+    if (!text) return
+    const now = new Date().toISOString()
+    const temporaryId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const pendingMessage: LiveMessage = {
+      id: temporaryId,
+      sessionId,
+      actorType: currentActorType,
+      actorId: 'pending',
+      displayName: 'You',
+      kind: 'chat',
+      body: text,
+      createdAt: now,
+      updatedAt: now,
+    }
     setBody('')
+    setOutgoing((items) => [...items, { message: pendingMessage, status: 'sending' }])
+    try {
+      const result = await api<{ message: LiveMessage }>(`/api/live/live-sessions/${sessionId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ kind: 'chat', body: text }),
+      })
+      setOutgoing((items) => items.map((item) => item.message.id === temporaryId ? { message: result.message, status: 'sent' } : item))
+    } catch {
+      setOutgoing((items) => items.map((item) => item.message.id === temporaryId ? { ...item, status: 'failed' } : item))
+    }
   }
+  const displayedMessages = [
+    ...messages.map((message) => ({ message, status: 'sent' as const })),
+    ...outgoing.filter((item) => !messages.some((message) => message.id === item.message.id)),
+  ]
+  useEffect(() => {
+    const list = messageListRef.current
+    if (list) list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' })
+  }, [displayedMessages.length, outgoing])
   return (
     <section className="lc-panel lc-chat">
-      <div className="lc-messages">
-        {messages.length ? messages.map((message) => (
-          <article className={`lc-message${message.actorType === currentActorType ? ' is-own' : ''}${message.kind !== 'chat' ? ' is-event' : ''}`} key={message.id}>
+      <div className="lc-messages" ref={messageListRef}>
+        {displayedMessages.length ? displayedMessages.map(({ message, status }) => message.kind === 'reaction' ? (
+          <div className="lc-reaction-activity" key={message.id}><span><strong>{message.displayName}</strong> reacted</span><b>{message.body}</b></div>
+        ) : message.kind === 'system' ? (
+          <div className="lc-system-activity" key={message.id}>{message.body}</div>
+        ) : (
+          <article className={`lc-message${message.actorType === currentActorType ? ' is-own' : ''}${status === 'sending' ? ' is-sending' : ''}${status === 'failed' ? ' is-failed' : ''}`} aria-busy={status === 'sending'} key={message.id}>
             <span className="lc-message-author">{message.displayName}</span>
             <p>{message.body}</p>
+            {status === 'sending' && <span className="lc-message-status">Sending…</span>}
+            {status === 'failed' && <span className="lc-message-status">Not sent</span>}
           </article>
         )) : (
           <div className="lc-chat-empty"><MessageCircle /><strong>No messages yet</strong><span>Start the class conversation here.</span></div>
@@ -718,7 +756,7 @@ function Chat({ sessionId, messages, currentActorType }: { sessionId: string; me
       <form
         onSubmit={(event) => {
           event.preventDefault()
-          void send('chat', body)
+          void send(body)
         }}
       >
         <input
@@ -726,7 +764,7 @@ function Chat({ sessionId, messages, currentActorType }: { sessionId: string; me
           onChange={(event) => setBody(event.target.value)}
           placeholder="Message the class"
         />
-        <button type="submit" aria-label="Send message">
+        <button type="submit" aria-label="Send message" disabled={!body.trim()}>
           <Send />
           <span>Send</span>
         </button>
