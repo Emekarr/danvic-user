@@ -1781,6 +1781,34 @@
   margin-top: 6px;
 }
 
+.lr-rich-module-content .lr-rich-task-list {
+  padding-left: 0;
+  list-style: none;
+}
+
+.lr-rich-module-content .lr-rich-task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.lr-rich-module-content .lr-rich-task-item > input {
+  width: 16px;
+  height: 16px;
+  margin-top: 5px;
+  accent-color: var(--sb-primary);
+}
+
+.lr-rich-module-content .lr-rich-task-item > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.lr-rich-module-content mark {
+  padding: 0 0.08em;
+  border-radius: 2px;
+}
+
 .lr-rich-module-content blockquote {
   padding: 5px 0 5px 20px;
   border-left: 3px solid var(--sb-primary);

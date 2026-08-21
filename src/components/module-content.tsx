@@ -39,6 +39,37 @@ const safeUrl = (value: unknown, protocols: string[]) => {
   }
 }
 
+const safeColor = (value: unknown) =>
+  typeof value === 'string' && /^#[\da-f]{3,8}$/iu.test(value) ? value : undefined
+
+const safeTextStyle = (attrs: Record<string, unknown> | undefined): CSSProperties => {
+  const allowedFonts = new Set([
+    'Arial, Helvetica, sans-serif',
+    'Georgia, serif',
+    '"Times New Roman", Times, serif',
+    'Verdana, Geneva, sans-serif',
+    '"Courier New", Courier, monospace',
+  ])
+  const allowedSizes = new Set(['12px', '14px', '16px', '18px', '20px', '24px', '30px', '36px'])
+  const allowedLineHeights = new Set(['1', '1.15', '1.5', '2'])
+  return {
+    color: safeColor(attrs?.color),
+    backgroundColor: safeColor(attrs?.backgroundColor),
+    fontFamily:
+      typeof attrs?.fontFamily === 'string' && allowedFonts.has(attrs.fontFamily)
+        ? attrs.fontFamily
+        : undefined,
+    fontSize:
+      typeof attrs?.fontSize === 'string' && allowedSizes.has(attrs.fontSize)
+        ? attrs.fontSize
+        : undefined,
+    lineHeight:
+      typeof attrs?.lineHeight === 'string' && allowedLineHeights.has(attrs.lineHeight)
+        ? attrs.lineHeight
+        : undefined,
+  }
+}
+
 function markedText(node: ContentNode, key: string): ReactNode {
   let result: ReactNode = node.text ?? ''
   for (const [index, mark] of (node.marks ?? []).entries()) {
@@ -48,6 +79,12 @@ function markedText(node: ContentNode, key: string): ReactNode {
     else if (mark.type === 'underline') result = <u key={markKey}>{result}</u>
     else if (mark.type === 'strike') result = <s key={markKey}>{result}</s>
     else if (mark.type === 'code') result = <code key={markKey}>{result}</code>
+    else if (mark.type === 'subscript') result = <sub key={markKey}>{result}</sub>
+    else if (mark.type === 'superscript') result = <sup key={markKey}>{result}</sup>
+    else if (mark.type === 'textStyle')
+      result = <span key={markKey} style={safeTextStyle(mark.attrs)}>{result}</span>
+    else if (mark.type === 'highlight')
+      result = <mark key={markKey} style={{ backgroundColor: safeColor(mark.attrs?.color) }}>{result}</mark>
     else if (mark.type === 'link') {
       const href = safeUrl(mark.attrs?.href, ['http:', 'https:', 'mailto:'])
       if (href)
@@ -118,6 +155,14 @@ function renderNode(node: ContentNode, key: string): ReactNode {
     )
   }
   if (node.type === 'listItem') return <li key={key}>{children}</li>
+  if (node.type === 'taskList') return <ul className="lr-rich-task-list" key={key}>{children}</ul>
+  if (node.type === 'taskItem')
+    return (
+      <li className="lr-rich-task-item" key={key}>
+        <input type="checkbox" checked={node.attrs?.checked === true} readOnly aria-label="Checklist item" />
+        <div>{children}</div>
+      </li>
+    )
   if (node.type === 'blockquote') return <blockquote key={key}>{children}</blockquote>
   if (node.type === 'codeBlock')
     return (
