@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import { CourseStudyPlayer } from '@/components/course-study-player'
 import { ViewOnlyPlayer } from '@/components/view-only-player'
+import { CourseAttachmentDownloadButton } from '@/components/course-attachment-access'
 import { AssessmentPlayer, StartAssessmentButton } from '@/components/assessment-player'
 import { AuthorRating } from '@/components/author-rating'
 import {
@@ -751,19 +752,20 @@ export function AttachmentView({
 }) {
   return (
     <LearnerAppShell>
-      <div>
+      <div className="lr-attachment-view">
+        <div className="lr-attachment-view-actions">
+          <Link
+            href={courseHref(courseId)}
+            className="sb-button sb-button--ghost sb-button--md"
+          >
+            <ArrowLeft aria-hidden="true" /> Back to course
+          </Link>
+          <CourseAttachmentDownloadButton courseId={courseId} attachmentId={attachmentId} />
+        </div>
         <PageHeader
           eyebrow="Protected material"
           title="Course attachment"
-          description="This attachment is displayed inside the course viewer without a download control."
-          actions={
-            <Link
-              href={courseHref(courseId)}
-              className="sb-button sb-button--ghost sb-button--md"
-            >
-              Back to course
-            </Link>
-          }
+          description="Open the attachment securely here or download a copy for offline use."
         />
         <ViewOnlyPlayer
           endpoint={`/api/courses/${encodeURIComponent(courseId)}/attachments/${encodeURIComponent(attachmentId)}`}

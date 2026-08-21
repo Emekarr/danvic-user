@@ -18,7 +18,6 @@ import {
   Volume2,
 } from 'lucide-react'
 import { CompleteModuleButton } from './course-participation'
-import { CourseAttachmentAccess } from './course-attachment-access'
 import { courseHref } from '@/lib/course-route'
 import { ModuleContent } from './module-content'
 
@@ -90,14 +89,6 @@ function Resources({
                     </span>
                     <ExternalLink aria-hidden="true" />
                   </a>
-                ) : kind === 'file' ? (
-                  <CourseAttachmentAccess
-                    courseId={courseId}
-                    attachmentId={attachment.id}
-                    name={name || fileName}
-                    icon={resourceIcon(kind)}
-                    detail={`${resourceLabel(kind)} · Choose view or download`}
-                  />
                 ) : (
                   <Link
                     href={courseHref(courseId, 'attachment', attachment.id)}
@@ -108,7 +99,7 @@ function Resources({
                     </span>
                     <span className="lr-resource-copy">
                       <strong>{name || fileName}</strong>
-                      <small>{resourceLabel(kind)} · View only</small>
+                      <small>{resourceLabel(kind)} · Open attachment</small>
                     </span>
                     <ExternalLink aria-hidden="true" />
                   </Link>
