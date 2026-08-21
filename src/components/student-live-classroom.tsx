@@ -20,9 +20,9 @@ import {
   type WhiteboardJoinConfig,
 } from '@danvic/api-client'
 import {
+  ArrowLeft,
   Camera,
   CameraOff,
-  ChevronDown,
   Ellipsis,
   Hand,
   Maximize2,
@@ -34,6 +34,7 @@ import {
   PenLine,
   PhoneOff,
   ScreenShareOff,
+  Send,
   SmilePlus,
   Users,
   X,
@@ -181,7 +182,7 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
     <main className="lc-shell">
       <header className="lc-top lc-top--studio">
         <button type="button" className="lc-minimize" aria-label="Minimize classroom" onClick={() => void leaveClass()}>
-          <ChevronDown />
+          <ArrowLeft />
         </button>
         <div className="lc-session-heading">
           <span className="lc-live-pill"><span className="lc-live-dot" /> Live</span>
@@ -241,7 +242,7 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
         </aside>
       </div>
       <footer className="lc-controls">
-        {reactionsOpen && <ReactionTray onSelect={sendReaction} onClose={() => setReactionsOpen(false)} />}
+        {reactionsOpen && <ReactionTray onSelect={sendReaction} />}
         <button
           type="button"
           className={rtc.cameraOn ? 'is-active' : 'is-off'}
@@ -290,8 +291,8 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
             <div className="lc-sheet-heading"><div><strong>More options</strong><span>Choose what you want to do</span></div><button type="button" aria-label="Close controls" onClick={() => setMoreOpen(false)}><X /></button></div>
             <div className="lc-sheet-grid">
               <button type="button" className={self?.handRaised ? 'is-selected' : ''} onClick={() => void update('handRaised', !self?.handRaised)}><span><Hand /></span><strong>{self?.handRaised ? 'Lower hand' : 'Raise hand'}</strong><small>Let your tutor know you want to speak.</small></button>
-              <button type="button" className={rtc.screenSharing ? 'is-selected' : ''} disabled={!self?.canPublish || !rtc.joined} onClick={() => void update('screenSharing', !rtc.screenSharing)}><span>{rtc.screenSharing ? <ScreenShareOff /> : <MonitorUp />}</span><strong>{rtc.screenSharing ? 'Stop sharing' : 'Share screen'}</strong><small>Present a browser tab or screen.</small></button>
-              <button type="button" className={showWhiteboard ? 'is-selected' : ''} disabled={!whiteboardAvailable} onClick={() => setWhiteboardOpen((value) => !value)}><span><PenLine /></span><strong>{showWhiteboard ? 'Show cameras' : 'Whiteboard'}</strong><small>View the collaborative class board.</small></button>
+              <button type="button" className={rtc.screenSharing ? 'is-selected' : ''} disabled={!self?.canPublish || !rtc.joined} onClick={() => { setMoreOpen(false); void update('screenSharing', !rtc.screenSharing) }}><span>{rtc.screenSharing ? <ScreenShareOff /> : <MonitorUp />}</span><strong>{rtc.screenSharing ? 'Stop sharing' : 'Share screen'}</strong><small>Present a browser tab or screen.</small></button>
+              <button type="button" className={showWhiteboard ? 'is-selected' : ''} disabled={!whiteboardAvailable} onClick={() => { setWhiteboardOpen((value) => !value); setMoreOpen(false) }}><span><PenLine /></span><strong>{showWhiteboard ? 'Show cameras' : 'Whiteboard'}</strong><small>View the collaborative class board.</small></button>
               <button type="button" onClick={() => { setDetailsOpen(true); setMoreOpen(false) }}><span><Users /></span><strong>People & chat</strong><small>See attendees and class messages.</small></button>
             </div>
           </section>
@@ -701,7 +702,8 @@ function Chat({ sessionId, messages }: { sessionId: string; messages: LiveMessag
           placeholder="Message the class"
         />
         <button type="submit" aria-label="Send message">
-          <MessageCircle />
+          <Send />
+          <span>Send</span>
         </button>
       </form>
     </section>
@@ -710,10 +712,8 @@ function Chat({ sessionId, messages }: { sessionId: string; messages: LiveMessag
 
 function ReactionTray({
   onSelect,
-  onClose,
 }: {
   onSelect: (value: string) => Promise<void>
-  onClose: () => void
 }) {
   return (
     <div className="lc-dock-reactions" role="dialog" aria-label="Choose a reaction">
@@ -722,7 +722,6 @@ function ReactionTray({
           {emoji}
         </button>
       ))}
-      <button type="button" className="lc-reactions-close" aria-label="Close reactions" onClick={onClose}><X /></button>
     </div>
   )
 }
