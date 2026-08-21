@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import '@danvic/ui/styles.css'
 import './learner.css'
+import './live-classroom.css'
 import ReactDomLegacy from '../lib/react-dom-legacy'
 
 export const metadata: Metadata = {
