@@ -79,7 +79,9 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
     [whiteboardOpen, setWhiteboardOpen] = useState(false),
     [moreOpen, setMoreOpen] = useState(false),
     [reactionsOpen, setReactionsOpen] = useState(false),
-    [detailsOpen, setDetailsOpen] = useState(false)
+    [detailsOpen, setDetailsOpen] = useState(false),
+    [detailsTab, setDetailsTab] = useState<'messages' | 'people'>('messages')
+  const reactionButtonRef = useRef<HTMLButtonElement>(null)
   const rtc = useRtc(join, setError)
   const self = state?.participants.find((item) => item.id === join.participant.id)
   const session = (state?.session ?? join.session) as LiveState['session'] & {
@@ -89,6 +91,10 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
   const whiteboardActive = Boolean(session.whiteboardActive && join.whiteboard)
   const whiteboardAvailable = Boolean(session.whiteboardUsedAt && join.whiteboard)
   const showWhiteboard = whiteboardAvailable && whiteboardOpen
+  const activeParticipants = (state?.participants ?? []).filter((participant) => !participant.leftAt)
+  const otherParticipantCount = activeParticipants.filter((participant) => participant.id !== join.participant.id).length
+  const hasOtherParticipants = otherParticipantCount > 0 || rtc.remoteVideos.length > 0
+  const visibleParticipantCount = Math.max(activeParticipants.length, rtc.remoteVideos.length + 1)
   const refresh = useCallback(async () => {
     try {
       const value = await api<LiveState>(`/api/live/live-sessions/${join.session.id}/state`)
@@ -215,11 +221,17 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
             <div className="lc-video-grid">
               {rtc.remoteVideos.length ? (
                 rtc.remoteVideos.map((remote) => <RemoteVideo key={remote.uid} remote={remote} />)
-              ) : (
+              ) : !hasOtherParticipants ? (
                 <div className="lc-alone-state">
                   <Users />
                   <strong>Waiting for your tutor</strong>
                   <span>Audio, video and shared screens will appear automatically.</span>
+                </div>
+              ) : (
+                <div className="lc-alone-state lc-presence-state">
+                  <Users />
+                  <strong>{visibleParticipantCount} people are in class</strong>
+                  <span>No one is sharing a camera or screen right now. Class audio continues automatically.</span>
                 </div>
               )}
               {self?.canPublish && (
@@ -237,13 +249,26 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
             <div><strong>Class details</strong><span>People and messages</span></div>
             <button type="button" aria-label="Close class details" onClick={() => setDetailsOpen(false)}><X /></button>
           </div>
-          <Participants participants={state?.participants ?? []} />
-          <Chat sessionId={join.session.id} messages={state?.messages ?? []} />
+          <div className={`lc-details-tabs${detailsTab === 'people' ? ' is-people' : ''}`} role="tablist" aria-label="Class details">
+            <button type="button" role="tab" aria-selected={detailsTab === 'messages'} aria-controls="student-class-messages" onClick={() => setDetailsTab('messages')}>Messages</button>
+            <button type="button" role="tab" aria-selected={detailsTab === 'people'} aria-controls="student-class-people" onClick={() => setDetailsTab('people')}>People</button>
+          </div>
+          <div className="lc-details-pages">
+            <div className={`lc-details-track is-${detailsTab}`}>
+              <div className="lc-details-page" id="student-class-messages" role="tabpanel" aria-hidden={detailsTab !== 'messages'} inert={detailsTab !== 'messages'}>
+                <Chat sessionId={join.session.id} messages={state?.messages ?? []} currentActorType="student" />
+              </div>
+              <div className="lc-details-page" id="student-class-people" role="tabpanel" aria-hidden={detailsTab !== 'people'} inert={detailsTab !== 'people'}>
+                <Participants participants={state?.participants ?? []} />
+              </div>
+            </div>
+          </div>
         </aside>
       </div>
       <footer className="lc-controls">
-        {reactionsOpen && <ReactionTray onSelect={sendReaction} />}
+        {reactionsOpen && <ReactionTray anchorRef={reactionButtonRef} onSelect={sendReaction} onClose={() => setReactionsOpen(false)} />}
         <button
+          ref={reactionButtonRef}
           type="button"
           className={rtc.cameraOn ? 'is-active' : 'is-off'}
           disabled={!self?.canPublish || !rtc.joined}
@@ -668,7 +693,7 @@ function Participants({ participants }: { participants: LiveParticipant[] }) {
     </section>
   )
 }
-function Chat({ sessionId, messages }: { sessionId: string; messages: LiveMessage[] }) {
+function Chat({ sessionId, messages, currentActorType }: { sessionId: string; messages: LiveMessage[]; currentActorType: LiveMessage['actorType'] }) {
   const [body, setBody] = useState('')
   const send = async (kind: 'chat' | 'reaction', value: string) => {
     if (!value.trim()) return
@@ -680,15 +705,15 @@ function Chat({ sessionId, messages }: { sessionId: string; messages: LiveMessag
   }
   return (
     <section className="lc-panel lc-chat">
-      <h3>
-        <MessageCircle /> Live chat
-      </h3>
       <div className="lc-messages">
-        {messages.map((message) => (
-          <p key={message.id}>
-            <strong>{message.displayName}</strong> {message.body}
-          </p>
-        ))}
+        {messages.length ? messages.map((message) => (
+          <article className={`lc-message${message.actorType === currentActorType ? ' is-own' : ''}${message.kind !== 'chat' ? ' is-event' : ''}`} key={message.id}>
+            <span className="lc-message-author">{message.displayName}</span>
+            <p>{message.body}</p>
+          </article>
+        )) : (
+          <div className="lc-chat-empty"><MessageCircle /><strong>No messages yet</strong><span>Start the class conversation here.</span></div>
+        )}
       </div>
       <form
         onSubmit={(event) => {
@@ -711,12 +736,32 @@ function Chat({ sessionId, messages }: { sessionId: string; messages: LiveMessag
 }
 
 function ReactionTray({
+  anchorRef,
   onSelect,
+  onClose,
 }: {
+  anchorRef: { current: HTMLButtonElement | null }
   onSelect: (value: string) => Promise<void>
+  onClose: () => void
 }) {
+  const trayRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const dismiss = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!trayRef.current?.contains(target) && !anchorRef.current?.contains(target)) onClose()
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('pointerdown', dismiss)
+    document.addEventListener('keydown', escape)
+    return () => {
+      document.removeEventListener('pointerdown', dismiss)
+      document.removeEventListener('keydown', escape)
+    }
+  }, [anchorRef, onClose])
   return (
-    <div className="lc-dock-reactions" role="dialog" aria-label="Choose a reaction">
+    <div className="lc-dock-reactions" ref={trayRef} role="dialog" aria-label="Choose a reaction">
       {['👍', '👏', '❤️', '🎉', '😂', '🤔', '🔥', '🙌'].map((emoji) => (
         <button type="button" key={emoji} aria-label={`React with ${emoji}`} onClick={() => void onSelect(emoji)}>
           {emoji}
