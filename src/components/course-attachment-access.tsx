@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { apiFetch } from '@danvic/api-client'
-import { Button, FormMessage } from '@danvic/ui'
+import { FormMessage } from '@danvic/ui'
 import { Download, ExternalLink } from 'lucide-react'
 
 type SignedView = { viewUrl: string; fileName?: string }
@@ -21,30 +21,31 @@ export function CourseAttachmentAccess({
   icon: ReactNode
   detail: string
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  const [viewUrl, setViewUrl] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busyAction, setBusyAction] = useState<'open' | 'download' | null>(null)
   const [error, setError] = useState('')
 
   const attachmentPath = `/api/courses/${encodeURIComponent(courseId)}/attachments/${encodeURIComponent(attachmentId)}`
-  const close = () => dialogRef.current?.close()
 
-  const chooseAction = async () => {
-    setBusy(true)
+  const open = async () => {
+    const newTab = window.open('about:blank', '_blank')
+    if (newTab) newTab.opener = null
+    setBusyAction('open')
     setError('')
     try {
-      const signed = await apiFetch<SignedView>(attachmentPath)
-      setViewUrl(signed.viewUrl)
-      dialogRef.current?.showModal()
+      const signed = await apiFetch<SignedView>(`${attachmentPath}/view`)
+      if (newTab) newTab.location.replace(signed.viewUrl)
+      else window.open(signed.viewUrl, '_blank', 'noopener,noreferrer')
     } catch (cause) {
+      newTab?.close()
       setError(cause instanceof Error ? cause.message : 'This course material could not be opened')
     } finally {
-      setBusy(false)
+      setBusyAction(null)
     }
   }
 
   const download = async () => {
-    close()
+    setBusyAction('download')
+    setError('')
     try {
       const signed = await apiFetch<SignedDownload>(`${attachmentPath}/download`)
       const link = document.createElement('a')
@@ -52,55 +53,29 @@ export function CourseAttachmentAccess({
       link.click()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'This course material could not be downloaded')
+    } finally {
+      setBusyAction(null)
     }
   }
 
   return (
     <>
-      <button type="button" className="lr-resource-link lr-resource-link--button" onClick={() => void chooseAction()} disabled={busy}>
+      <div className="lr-resource-link lr-resource-link--file-access">
         <span className="lr-resource-icon" data-kind="file">{icon}</span>
         <span className="lr-resource-copy">
           <strong>{name}</strong>
-          <small>{busy ? 'Preparing secure access…' : detail}</small>
+          <small>{busyAction ? 'Preparing secure access…' : detail}</small>
         </span>
-        <ExternalLink aria-hidden="true" />
-      </button>
+        <span className="lr-resource-actions">
+          <button type="button" className="lr-resource-action" onClick={() => void download()} disabled={busyAction !== null}>
+            <Download aria-hidden="true" /> {busyAction === 'download' ? 'Downloading…' : 'Download'}
+          </button>
+          <button type="button" className="lr-resource-action lr-resource-action--open" onClick={() => void open()} disabled={busyAction !== null}>
+            <ExternalLink aria-hidden="true" /> {busyAction === 'open' ? 'Opening…' : 'Open'}
+          </button>
+        </span>
+      </div>
       <FormMessage>{error}</FormMessage>
-      <dialog ref={dialogRef} className="lr-attachment-dialog" aria-labelledby={`attachment-action-${attachmentId}`}>
-        <div className="lr-dialog-head">
-          <div>
-            <p className="lr-attachment-dialog-eyebrow">Course material</p>
-            <h2 id={`attachment-action-${attachmentId}`}>Choose how to open this file</h2>
-          </div>
-          <Button type="button" variant="ghost" size="sm" className="lr-attachment-dialog-cancel" onClick={close}>
-            Cancel
-          </Button>
-        </div>
-        <div className="lr-dialog-body">
-          <div className="lr-attachment-dialog-file">
-            <span aria-hidden="true">{icon}</span>
-            <div>
-              <strong>{name}</strong>
-              <small>{detail}</small>
-            </div>
-          </div>
-          <p className="lr-dialog-question">Open a secure view in a new tab, or download a copy to your device.</p>
-        </div>
-        <div className="lr-dialog-footer">
-          <Button type="button" variant="secondary" onClick={() => void download()}>
-            <Download aria-hidden="true" /> Download
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              close()
-              window.open(viewUrl, '_blank', 'noopener,noreferrer')
-            }}
-          >
-            <ExternalLink aria-hidden="true" /> View in new tab
-          </Button>
-        </div>
-      </dialog>
     </>
   )
 }
