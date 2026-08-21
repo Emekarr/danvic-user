@@ -30,6 +30,7 @@ import {
   MonitorUp,
   PenLine,
   ScreenShareOff,
+  SmilePlus,
   Users,
 } from 'lucide-react'
 
@@ -94,8 +95,13 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
           own?.bannedAt ? 'You were banned from this class.' : 'You were removed from this class.',
         )
       } else {
-        if (!own.microphoneOn && rtc.microphoneOn) await rtc.set('microphoneOn', false)
-        if (!own.cameraOn && rtc.cameraOn) await rtc.set('cameraOn', false)
+        if (!own.canPublish) {
+          await rtc.moveToAudience()
+        } else {
+          if (!own.microphoneOn && rtc.microphoneOn) await rtc.set('microphoneOn', false)
+          if (!own.cameraOn && rtc.cameraOn) await rtc.set('cameraOn', false)
+          if (!own.screenSharing && rtc.screenSharing) await rtc.set('screenSharing', false)
+        }
       }
     } catch {
       /* keep the active call during a transient poll failure */
@@ -143,23 +149,30 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
   }
   return (
     <main className="lc-shell">
-      <header className="lc-top">
-        <div>
-          <span className="lc-live-dot" /> Live class
-        </div>
-        <span className="lc-time-remaining">
-          {join.session.expiresAt
-            ? `Ends in ${remainingLabel(join.session.expiresAt)}`
-            : 'Live now'}
-        </span>
-        {session.whiteboardUsedAt && (
-          <span className={`lc-mode-status${whiteboardActive ? ' is-active' : ''}`}>
-            {whiteboardActive ? 'Whiteboard active' : 'Whiteboard used'}
+      <header className="lc-top lc-top--studio">
+        <div className="lc-session-heading">
+          <span className="lc-live-pill"><span className="lc-live-dot" /> Live</span>
+          <span>
+            <strong>Live classroom</strong>
           </span>
-        )}
-        <span>{self?.canPublish ? 'You can speak' : 'Audience mode'}</span>
+        </div>
+        <div className="lc-session-meta">
+          <span className="lc-time-remaining">
+            {join.session.expiresAt
+              ? `Ends in ${remainingLabel(join.session.expiresAt)}`
+              : 'Live now'}
+          </span>
+          {session.whiteboardUsedAt && (
+            <span className={`lc-mode-status${whiteboardActive ? ' is-active' : ''}`}>
+              {whiteboardActive ? 'Whiteboard active' : 'Whiteboard ready'}
+            </span>
+          )}
+          <span className={`lc-role-status${self?.canPublish ? ' is-on-stage' : ''}`}>
+            {self?.canPublish ? 'On stage' : 'Audience'}
+          </span>
+        </div>
       </header>
-      {error && <p className="lc-error">{error}</p>}
+      {error && <p className="lc-error" role="alert">{error}</p>}
       <div className="lc-layout">
         <section className={`lc-stage${showWhiteboard ? ' lc-stage--whiteboard' : ''}`}>
           {showWhiteboard && join.whiteboard ? (
@@ -192,6 +205,8 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
       </div>
       <footer className="lc-controls">
         <button
+          type="button"
+          className={rtc.microphoneOn ? 'is-active' : ''}
           disabled={!self?.canPublish || !rtc.joined}
           onClick={() => update('microphoneOn', !rtc.microphoneOn)}
         >
@@ -199,20 +214,25 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
           <span>{rtc.microphoneOn ? 'Mute' : 'Unmute'}</span>
         </button>
         <button
+          type="button"
+          className={rtc.cameraOn ? 'is-active' : ''}
           disabled={!self?.canPublish || !rtc.joined}
           onClick={() => update('cameraOn', !rtc.cameraOn)}
         >
           {rtc.cameraOn ? <Camera /> : <CameraOff />}
-          <span>{rtc.cameraOn ? 'Camera off' : 'Camera on'}</span>
+          <span>{rtc.cameraOn ? 'Turn camera off' : 'Turn camera on'}</span>
         </button>
         <button
+          type="button"
+          className={rtc.screenSharing ? 'is-active' : ''}
           disabled={!self?.canPublish || !rtc.joined}
           onClick={() => update('screenSharing', !rtc.screenSharing)}
         >
           {rtc.screenSharing ? <ScreenShareOff /> : <MonitorUp />}
-          <span>Share screen</span>
+          <span>{rtc.screenSharing ? 'Stop share' : 'Share screen'}</span>
         </button>
         <button
+          type="button"
           className={self?.handRaised ? 'is-active' : ''}
           onClick={() => update('handRaised', !self?.handRaised)}
         >
@@ -220,6 +240,7 @@ function Classroom({ join }: { join: LiveJoinConfig }) {
           <span>{self?.handRaised ? 'Lower hand' : 'Raise hand'}</span>
         </button>
         <button
+          type="button"
           className={showWhiteboard ? 'is-active' : ''}
           disabled={!whiteboardAvailable}
           onClick={() => setWhiteboardOpen((value) => !value)}
@@ -238,6 +259,7 @@ function useRtc(join: LiveJoinConfig, onError: (value: string) => void) {
     cameraRef = useRef<ICameraVideoTrack | null>(null),
     screenRef = useRef<ILocalVideoTrack | null>(null)
   const cameraPausedForScreenRef = useRef(false)
+  const roleRef = useRef(join.role)
   const agoraRtcRef = useRef<typeof import('agora-rtc-sdk-ng').default | null>(null)
   const joinPromiseRef = useRef<Promise<void> | null>(null)
   const leavePromiseRef = useRef<Promise<void>>(Promise.resolve())
@@ -261,6 +283,7 @@ function useRtc(join: LiveJoinConfig, onError: (value: string) => void) {
       setJoined(false)
       agoraRtcRef.current = AgoraRTC
       const rtcClient = AgoraRTC.createClient({ mode: 'live', codec: 'vp8', role: join.role })
+      roleRef.current = join.role
       client = rtcClient
       clientRef.current = rtcClient
       setRemoteVideos([])
@@ -313,6 +336,27 @@ function useRtc(join: LiveJoinConfig, onError: (value: string) => void) {
       void leavePromise
     }
   }, [join, onError])
+  const stopScreenSharing = useCallback(async () => {
+    const client = clientRef.current
+    const joinPromise = joinPromiseRef.current
+    if (!client || !joinPromise) return
+    await joinPromise
+    if (clientRef.current !== client) return
+
+    const screenTrack = screenRef.current
+    if (screenTrack) {
+      await client.unpublish(screenTrack)
+      if (screenRef.current === screenTrack) screenRef.current = null
+      screenTrack.stop()
+      screenTrack.close()
+    }
+    if (cameraPausedForScreenRef.current && cameraRef.current) {
+      await cameraRef.current.setEnabled(true)
+      await client.publish(cameraRef.current)
+    }
+    cameraPausedForScreenRef.current = false
+    setScreen(false)
+  }, [])
   const set = useCallback(
     async (field: 'microphoneOn' | 'cameraOn' | 'screenSharing', enabled: boolean) => {
       const client = clientRef.current
@@ -325,7 +369,10 @@ function useRtc(join: LiveJoinConfig, onError: (value: string) => void) {
       const screenTrackValue = screenTrackPromise ? await screenTrackPromise : null
       await joinPromise
       if (clientRef.current !== client) return
-      await client.setClientRole('host')
+      if (enabled && roleRef.current !== 'host') {
+        await client.setClientRole('host')
+        roleRef.current = 'host'
+      }
       if (field === 'microphoneOn') {
         if (!audioRef.current) audioRef.current = await AgoraRTC.createMicrophoneAudioTrack()
         await audioRef.current.setEnabled(enabled)
@@ -359,11 +406,20 @@ function useRtc(join: LiveJoinConfig, onError: (value: string) => void) {
             screenRef.current = screenTrack
             await client.publish(screenTrack)
             screenTrack.on('track-ended', () => {
-              void client.unpublish(screenTrack).catch(() => undefined)
-              screenTrack.stop()
-              screenTrack.close()
-              if (screenRef.current === screenTrack) screenRef.current = null
-              setScreen(false)
+              if (screenRef.current !== screenTrack) return
+              void (async () => {
+                await stopScreenSharing()
+                await api(`/api/live/live-sessions/${join.session.id}/me`, {
+                  method: 'PATCH',
+                  body: JSON.stringify({ screenSharing: false }),
+                })
+              })().catch((value: unknown) =>
+                onError(
+                  value instanceof Error
+                    ? value.message
+                    : 'Could not restore the camera after screen sharing.',
+                ),
+              )
             })
           } catch (error) {
             if (cameraPausedForScreenRef.current && cameraTrack) {
@@ -373,22 +429,40 @@ function useRtc(join: LiveJoinConfig, onError: (value: string) => void) {
             cameraPausedForScreenRef.current = false
             throw error
           }
-        } else if (screenRef.current) {
-          await client.unpublish(screenRef.current)
-          screenRef.current.stop()
-          screenRef.current.close()
-          screenRef.current = null
-          if (cameraPausedForScreenRef.current && cameraRef.current) {
-            await cameraRef.current.setEnabled(true)
-            await client.publish(cameraRef.current)
-          }
-          cameraPausedForScreenRef.current = false
-        }
-        setScreen(enabled)
+        } else await stopScreenSharing()
+        if (enabled) setScreen(true)
       }
     },
-    [cameraOn],
+    [cameraOn, join.session.id, onError, stopScreenSharing],
   )
+  const moveToAudience = useCallback(async () => {
+    const client = clientRef.current
+    const joinPromise = joinPromiseRef.current
+    if (!client || !joinPromise) return
+    await joinPromise
+    if (clientRef.current !== client) return
+
+    const localTracks = new Set<unknown>([audioRef.current, cameraRef.current, screenRef.current])
+    const publishedTracks = client.localTracks.filter((track) => localTracks.has(track))
+    if (publishedTracks.length) await client.unpublish(publishedTracks).catch(() => undefined)
+
+    cameraPausedForScreenRef.current = false
+    for (const ref of [audioRef, cameraRef, screenRef]) {
+      const track = ref.current
+      ref.current = null
+      track?.stop()
+      track?.close()
+    }
+    setMic(false)
+    setCamera(false)
+    setScreen(false)
+    setCameraTrack(null)
+
+    if (roleRef.current !== 'audience') {
+      await client.setClientRole('audience')
+      roleRef.current = 'audience'
+    }
+  }, [])
   const leave = useCallback(async () => {
     const client = clientRef.current
     clientRef.current = null
@@ -414,9 +488,20 @@ function useRtc(join: LiveJoinConfig, onError: (value: string) => void) {
       remoteVideos,
       joined,
       set,
+      moveToAudience,
       leave,
     }),
-    [microphoneOn, cameraOn, screenSharing, cameraTrack, remoteVideos, joined, set, leave],
+    [
+      microphoneOn,
+      cameraOn,
+      screenSharing,
+      cameraTrack,
+      remoteVideos,
+      joined,
+      set,
+      moveToAudience,
+      leave,
+    ],
   )
 }
 
@@ -508,29 +593,35 @@ function Whiteboard({ config, uid }: { config: WhiteboardJoinConfig; uid: string
 function Participants({ participants }: { participants: LiveParticipant[] }) {
   const active = participants.filter((item) => !item.leftAt)
   return (
-    <section className="lc-panel">
-      <h3>
-        <Users /> Participants ({active.length})
-      </h3>
-      {active.map((person) => (
-        <div className="lc-person" key={person.id}>
-          <div>
-            <strong>{person.displayName}</strong>
-            <small>
-              {person.actorType}
-              {person.handRaised ? ' · ✋' : ''}
-            </small>
+    <section className="lc-panel lc-participant-panel">
+      <div className="lc-panel-heading">
+        <h3><Users /> People</h3>
+        <span>{active.length} in class</span>
+      </div>
+      <div className="lc-participants">
+        {active.length ? active.map((person) => (
+          <div className="lc-person" key={person.id}>
+            <span className="lc-person-avatar" aria-hidden="true">{initials(person.displayName)}</span>
+            <div className="lc-person-copy">
+              <span className="lc-person-name">
+                <strong>{person.displayName}</strong>
+                {person.handRaised && <span className="lc-hand-raised"><Hand /> Hand raised</span>}
+              </span>
+              <small>{person.actorType === 'author' ? 'Tutor' : person.canPublish ? 'On stage' : 'Attendee'}</small>
+            </div>
+            <div className="lc-person-media" aria-label="Media status">
+              {person.microphoneOn ? <Mic aria-label="Microphone on" /> : <MicOff aria-label="Microphone off" />}
+              {person.cameraOn ? <Camera aria-label="Camera on" /> : <CameraOff aria-label="Camera off" />}
+            </div>
           </div>
-          <span>
-            {person.microphoneOn ? '🎙️' : '🔇'} {person.cameraOn ? '📹' : ''}
-          </span>
-        </div>
-      ))}
+        )) : <p className="lc-panel-empty">Waiting for people to join.</p>}
+      </div>
     </section>
   )
 }
 function Chat({ sessionId, messages }: { sessionId: string; messages: LiveMessage[] }) {
   const [body, setBody] = useState('')
+  const reactionPickerRef = useRef<HTMLDetailsElement>(null)
   const send = async (kind: 'chat' | 'reaction', value: string) => {
     if (!value.trim()) return
     await api(`/api/live/live-sessions/${sessionId}/messages`, {
@@ -551,13 +642,24 @@ function Chat({ sessionId, messages }: { sessionId: string; messages: LiveMessag
           </p>
         ))}
       </div>
-      <div className="lc-reactions">
-        {['👍', '👏', '❤️', '🎉'].map((emoji) => (
-          <button key={emoji} onClick={() => send('reaction', emoji)}>
-            {emoji}
-          </button>
-        ))}
-      </div>
+      <details className="lc-reaction-picker" ref={reactionPickerRef}>
+        <summary><SmilePlus /> Reaction</summary>
+        <div className="lc-reaction-popover" aria-label="Choose a reaction">
+          {['👍', '👏', '❤️', '🎉', '😂', '🤔', '🔥', '🙌'].map((emoji) => (
+            <button
+              type="button"
+              key={emoji}
+              aria-label={`React with ${emoji}`}
+              onClick={() => {
+                reactionPickerRef.current?.removeAttribute('open')
+                void send('reaction', emoji)
+              }}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </details>
       <form
         onSubmit={(event) => {
           event.preventDefault()
@@ -569,7 +671,7 @@ function Chat({ sessionId, messages }: { sessionId: string; messages: LiveMessag
           onChange={(event) => setBody(event.target.value)}
           placeholder="Message the class"
         />
-        <button aria-label="Send">
+        <button type="submit" aria-label="Send message">
           <MessageCircle />
         </button>
       </form>
@@ -578,4 +680,13 @@ function Chat({ sessionId, messages }: { sessionId: string; messages: LiveMessag
 }
 async function api<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   return apiFetch<T>(path, init)
+}
+
+function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'A'
 }
