@@ -1,10 +1,6 @@
 import type { AnchorHTMLAttributes, PropsWithChildren } from 'react'
 
-/**
- * ID-based pages are handled by the exported SPA shell. A document navigation
- * lets Cloudflare Pages serve index.html and avoids Next requesting an RSC file
- * that cannot exist for an ID that was created after the static build.
- */
+/** Uses a document navigation for query-driven pages in the static export. */
 export function StaticRouteLink({
   href,
   children,

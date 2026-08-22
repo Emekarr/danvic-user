@@ -5,6 +5,7 @@ import { Badge, EmptyState, PageHeader } from '@danvic/ui'
 import { CalendarClock, ClipboardCheck, Clock3 } from 'lucide-react'
 import { useAssessments } from '@/lib/data'
 import { LoadingState } from '@/components/loading-state'
+import { assessmentAttemptHref, assessmentHref } from '@/lib/course-route'
 
 export default function AssessmentsPage() {
   const { data, loading, error } = useAssessments()
@@ -20,7 +21,9 @@ export default function AssessmentsPage() {
       {loading ? (
         <LoadingState label="Loading your assessments…" />
       ) : error ? (
-        <p className="ad-empty-line" data-tone="error">{error}</p>
+        <p className="ad-empty-line" data-tone="error">
+          {error}
+        </p>
       ) : assessments.length ? (
         <div className="lr-assessment-list">
           {assessments.map((assessment) => {
@@ -29,8 +32,8 @@ export default function AssessmentsPage() {
               status === 'graded' ? (assessment.attempt?.passed ? 'passed' : 'failed') : status
             const href =
               assessment.attempt && assessment.attempt.status !== 'in_progress'
-                ? `/assessment-attempts/${assessment.attempt.id}`
-                : `/assessments/${assessment.id}`
+                ? assessmentAttemptHref(assessment.attempt.id)
+                : assessmentHref(assessment.id)
             return (
               <article className="lr-assessment-row" key={assessment.id}>
                 <div className="lr-assessment-copy">

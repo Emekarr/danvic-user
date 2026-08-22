@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, Field, FormMessage, Input } from '@danvic/ui'
 import { ArrowLeft, Camera, CheckCircle2, ScanLine, Search, Square } from 'lucide-react'
+import { certificateHref } from '@/lib/course-route'
 
 type BarcodeDetectorConstructor = new (options: { formats: string[] }) => {
   detect(source: HTMLVideoElement): Promise<Array<{ rawValue: string }>>
@@ -53,7 +54,7 @@ export function CertificateVerifier() {
         return
       }
       stop()
-      router.push(`/certificates/${encodeURIComponent(number)}`)
+      router.push(certificateHref(number))
     }, 500)
     return () => window.clearInterval(timer)
   }, [router, scanning])
@@ -177,7 +178,7 @@ export function CertificateVerifier() {
                 setError('Enter a valid DANVIC certificate ID.')
                 return
               }
-              router.push(`/certificates/${encodeURIComponent(number)}`)
+              router.push(certificateHref(number))
             }}
           >
             <Field label="Certificate ID" required>
@@ -210,7 +211,9 @@ export function CertificateVerifier() {
             </span>
             <div>
               <h3>Scan the QR code</h3>
-              <p>Position the code inside the frame. We’ll open the certificate when it is found.</p>
+              <p>
+                Position the code inside the frame. We’ll open the certificate when it is found.
+              </p>
             </div>
             <button type="button" className="lr-certificate-back" onClick={chooseAnotherMethod}>
               <ArrowLeft aria-hidden="true" /> Change
@@ -221,7 +224,11 @@ export function CertificateVerifier() {
               <video ref={videoRef} muted playsInline aria-label="Certificate QR scanner camera" />
               {!scanning ? <Camera aria-hidden="true" /> : <span className="cert-scan-frame" />}
             </div>
-            <p>{scanning ? 'Looking for a DANVIC certificate QR code…' : 'Camera stays off until you start scanning.'}</p>
+            <p>
+              {scanning
+                ? 'Looking for a DANVIC certificate QR code…'
+                : 'Camera stays off until you start scanning.'}
+            </p>
           </div>
           <Button
             type="button"

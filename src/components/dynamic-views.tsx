@@ -60,12 +60,17 @@ import {
   useLiveSession,
   useRecordings,
 } from '@/lib/data'
-import { courseHref, type CoursePageView } from '@/lib/course-route'
+import {
+  assessmentAttemptHref,
+  assessmentHref,
+  authorHref,
+  courseHref,
+  type CoursePageView,
+} from '@/lib/course-route'
 import styles from '@/components/author-detail.module.css'
 
 const StudentLiveClassroom = dynamic(
-  () =>
-    import('@/components/student-live-classroom').then((module) => module.StudentLiveClassroom),
+  () => import('@/components/student-live-classroom').then((module) => module.StudentLiveClassroom),
   {
     ssr: false,
     loading: () => <p className="ad-empty-line">Joining the live classroom…</p>,
@@ -255,11 +260,12 @@ export function CourseView({ courseId }: { courseId: string }) {
           preview.course.type === 'live' &&
           Boolean(preview.course.scheduledAt) &&
           new Date(preview.course.scheduledAt!).getTime() > Date.now()
-        const saved = signedIn && upcomingLive
-          ? await apiFetch<{ bookmarks: Array<{ courseId: string; enabled: boolean }> }>(
-              '/api/course-bookmarks',
-            ).catch(() => ({ bookmarks: [] }))
-          : { bookmarks: [] }
+        const saved =
+          signedIn && upcomingLive
+            ? await apiFetch<{ bookmarks: Array<{ courseId: string; enabled: boolean }> }>(
+                '/api/course-bookmarks',
+              ).catch(() => ({ bookmarks: [] }))
+            : { bookmarks: [] }
         if (active)
           setState({
             phase: 'preview',
@@ -268,12 +274,9 @@ export function CourseView({ courseId }: { courseId: string }) {
             recordings: [],
             finalAssessment: null,
             preview,
-            canEnroll:
-              signedIn && aggregateCode === 'ENROLLMENT_REQUIRED' && !upcomingLive,
+            canEnroll: signedIn && aggregateCode === 'ENROLLMENT_REQUIRED' && !upcomingLive,
             canBookmark: signedIn && upcomingLive,
-            bookmarked: saved.bookmarks.some(
-              (item) => item.courseId === courseId && item.enabled,
-            ),
+            bookmarked: saved.bookmarks.some((item) => item.courseId === courseId && item.enabled),
             upcomingLive,
             message: '',
             scheduled: false,
@@ -301,13 +304,21 @@ export function CourseView({ courseId }: { courseId: string }) {
     }
   }, [courseId, revision])
 
-  if (state.phase === 'loading')
-    return <LearnerShellLoading label="Loading the course…" />
+  if (state.phase === 'loading') return <LearnerShellLoading label="Loading the course…" />
 
   if (state.phase === 'participating' && state.aggregate) {
     const value = state.aggregate
     const { course, modules, completedModuleIds, enrollment } = value
     const completed = new Set(completedModuleIds)
+    const progressResetHistory = (
+      enrollment as typeof enrollment & {
+        progressResetHistory?: Array<{
+          resetAt: string
+          completedModuleIds: string[]
+        }>
+      }
+    ).progressResetHistory
+    const latestProgressReset = progressResetHistory?.at(-1) ?? null
     const modulesComplete =
       modules.length === 0 || modules.every((module) => completed.has(module.id))
     const progressPercent = enrollment.completedAt
@@ -318,6 +329,23 @@ export function CourseView({ courseId }: { courseId: string }) {
     return (
       <LearnerAppShell student={viewer ?? null}>
         <div className="lr-course-detail-page">
+          {latestProgressReset ? (
+            <Card style={{ marginBottom: 20 }}>
+              <div className="sb-card-body">
+                <Badge tone="blue" dot>
+                  Course updated
+                </Badge>
+                <p style={{ marginTop: 10 }}>
+                  The course modules changed on{' '}
+                  {new Date(latestProgressReset.resetAt).toLocaleDateString('en-NG')}. Your active
+                  progress was restarted from module one; your previous position of{' '}
+                  {latestProgressReset.completedModuleIds.length} completed module
+                  {latestProgressReset.completedModuleIds.length === 1 ? '' : 's'} remains in the
+                  course history.
+                </p>
+              </div>
+            </Card>
+          ) : null}
           {paymentSucceeded ? (
             <Card style={{ marginBottom: 20 }}>
               <div className="sb-card-body">
@@ -349,7 +377,10 @@ export function CourseView({ courseId }: { courseId: string }) {
                     {enrollment.completedAt ? 'Completed' : 'In progress'}
                   </Badge>
                 </span>
-                <CourseProgress percent={progressPercent} className="lr-course-progress lr-course-progress--header" />
+                <CourseProgress
+                  percent={progressPercent}
+                  className="lr-course-progress lr-course-progress--header"
+                />
                 {course.type !== 'live' ? (
                   <Link
                     href={courseHref(course.id, 'study')}
@@ -398,11 +429,14 @@ export function CourseView({ courseId }: { courseId: string }) {
                 {new Date(course.scheduledAt).toLocaleString()}
               </span>
             ) : null}
-            <CourseProgress percent={progressPercent} className="lr-course-progress lr-course-progress--meta" />
+            <CourseProgress
+              percent={progressPercent}
+              className="lr-course-progress lr-course-progress--meta"
+            />
           </div>
           <CourseCover course={course} className="lr-course-hero-media" />
           <StaticRouteLink
-            href={`/authors/${course.createdByAuthorId}`}
+            href={authorHref(course.createdByAuthorId)}
             className="lr-author-link lr-author-link--inline"
           >
             Meet the course author
@@ -420,7 +454,7 @@ export function CourseView({ courseId }: { courseId: string }) {
               </div>
               {modulesComplete && state.finalAssessment.availability === 'open' ? (
                 <StaticRouteLink
-                  href={`/assessments/${state.finalAssessment.id}`}
+                  href={assessmentHref(state.finalAssessment.id)}
                   className="sb-button sb-button--primary sb-button--md"
                 >
                   Take final assessment
@@ -496,7 +530,7 @@ export function CourseView({ courseId }: { courseId: string }) {
           </div>
           <CourseCover course={course} className="lr-course-hero-media" />
           <StaticRouteLink
-            href={`/authors/${course.createdByAuthorId}`}
+            href={authorHref(course.createdByAuthorId)}
             className="lr-author-link lr-author-link--inline"
           >
             Meet the course author
@@ -509,15 +543,12 @@ export function CourseView({ courseId }: { courseId: string }) {
                   {upcomingLive
                     ? 'Bookmark this course and we will email you 30 minutes and 10 minutes before it starts.'
                     : course.accessType === 'paid'
-                    ? 'Complete a secure Paystack payment to unlock this course.'
-                    : 'Sign in and enroll to unlock this free course.'}
+                      ? 'Complete a secure Paystack payment to unlock this course.'
+                      : 'Sign in and enroll to unlock this free course.'}
                 </p>
               </div>
               {upcomingLive && state.canBookmark ? (
-                <CourseBookmarkButton
-                  courseId={course.id}
-                  initialBookmarked={state.bookmarked}
-                />
+                <CourseBookmarkButton courseId={course.id} initialBookmarked={state.bookmarked} />
               ) : upcomingLive ? (
                 <Link
                   href={`/login?next=${encodeURIComponent(courseHref(course.id))}`}
@@ -570,7 +601,11 @@ export function CourseView({ courseId }: { courseId: string }) {
       <div>
         <Card className="sb-empty-state">
           <span className="sb-empty-icon">
-            {state.scheduled ? <CalendarClock aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}
+            {state.scheduled ? (
+              <CalendarClock aria-hidden="true" />
+            ) : (
+              <LockKeyhole aria-hidden="true" />
+            )}
           </span>
           <h3>{state.scheduled ? 'This course is scheduled' : 'Course unavailable'}</h3>
           <p>{state.message}</p>
@@ -644,7 +679,9 @@ export function RecordingsView({ courseId }: { courseId: string }) {
   if (error)
     return (
       <LearnerAppShell>
-        <p className="ad-empty-line" data-tone="error">{error}</p>
+        <p className="ad-empty-line" data-tone="error">
+          {error}
+        </p>
       </LearnerAppShell>
     )
   const recordings = data ?? []
@@ -656,10 +693,7 @@ export function RecordingsView({ courseId }: { courseId: string }) {
           title="Class recordings"
           description="Each start/stop interval is listed separately. Playback is enrollment-gated and view-only."
           actions={
-            <Link
-              href={courseHref(courseId)}
-              className="sb-button sb-button--ghost sb-button--md"
-            >
+            <Link href={courseHref(courseId)} className="sb-button sb-button--ghost sb-button--md">
               Back to course
             </Link>
           }
@@ -712,13 +746,7 @@ export function RecordingsView({ courseId }: { courseId: string }) {
   )
 }
 
-export function PlaybackView({
-  courseId,
-  recordingId,
-}: {
-  courseId: string
-  recordingId: string
-}) {
+export function PlaybackView({ courseId, recordingId }: { courseId: string; recordingId: string }) {
   return (
     <LearnerAppShell>
       <div>
@@ -754,10 +782,7 @@ export function AttachmentView({
     <LearnerAppShell>
       <div className="lr-attachment-view">
         <div className="lr-attachment-view-actions">
-          <Link
-            href={courseHref(courseId)}
-            className="sb-button sb-button--ghost sb-button--md"
-          >
+          <Link href={courseHref(courseId)} className="sb-button sb-button--ghost sb-button--md">
             <ArrowLeft aria-hidden="true" /> Back to course
           </Link>
           <CourseAttachmentDownloadButton courseId={courseId} attachmentId={attachmentId} />
@@ -776,11 +801,6 @@ export function AttachmentView({
   )
 }
 
-export function DemoAttachmentView() {
-  notFound()
-  return null
-}
-
 export function RecorderView({ sessionId }: { sessionId: string }) {
   const query = useSearchParams()
   const token = query.get('token') ?? ''
@@ -792,7 +812,7 @@ export function AssessmentStartView({ assessmentId }: { assessmentId: string }) 
   const { data: assessment, loading, error } = useAssessment(assessmentId)
   useEffect(() => {
     if (assessment?.attempt && assessment.attempt.status !== 'in_progress')
-      router.replace(`/assessment-attempts/${assessment.attempt.id}`)
+      router.replace(assessmentAttemptHref(assessment.attempt.id))
   }, [assessment, router])
   if (loading)
     return (
@@ -861,7 +881,8 @@ export function AssessmentStartView({ assessmentId }: { assessmentId: string }) 
           <StartAssessmentButton assessmentId={assessment.id} label="Start assessment" />
         </section>
         <p className="lr-window">
-          <CalendarClock aria-hidden="true" /> Available {new Date(assessment.opensAt).toLocaleString()}
+          <CalendarClock aria-hidden="true" /> Available{' '}
+          {new Date(assessment.opensAt).toLocaleString()}
           {' – '}
           {new Date(assessment.closesAt).toLocaleString()}
         </p>
@@ -932,8 +953,8 @@ export function AssessmentAttemptView({ attemptId }: { attemptId: string }) {
         {canRetry ? (
           <section className="lr-begin">
             <p className="lr-begin-note">
-              You still have {attemptsRemaining} attempt{attemptsRemaining === 1 ? '' : 's'} remaining
-              for this assessment.
+              You still have {attemptsRemaining} attempt{attemptsRemaining === 1 ? '' : 's'}{' '}
+              remaining for this assessment.
             </p>
             <StartAssessmentButton assessmentId={assessment.id} label="Retry assessment" navigate />
           </section>
@@ -949,9 +970,9 @@ export function AssessmentAttemptView({ attemptId }: { attemptId: string }) {
             </div>
             <div className="lr-min-rows">
               {attemptHistory.map((item) => (
-                <a
+                <Link
                   className="lr-min-row"
-                  href={`/assessment-attempts/${item.id}`}
+                  href={assessmentAttemptHref(item.id)}
                   data-current={item.id === attempt.id || undefined}
                   key={item.id}
                 >
@@ -980,7 +1001,7 @@ export function AssessmentAttemptView({ attemptId }: { attemptId: string }) {
                           ? 'failed'
                           : item.status.replace('_', ' ')}
                   </Badge>
-                </a>
+                </Link>
               ))}
             </div>
           </section>
@@ -991,8 +1012,8 @@ export function AssessmentAttemptView({ attemptId }: { attemptId: string }) {
             <div>
               <h2>Your responses</h2>
               <p>
-                {assessment.questions.length} question{assessment.questions.length === 1 ? '' : 's'} with
-                points shown per question.
+                {assessment.questions.length} question{assessment.questions.length === 1 ? '' : 's'}{' '}
+                with points shown per question.
               </p>
             </div>
           </div>
@@ -1013,7 +1034,9 @@ export function AssessmentAttemptView({ attemptId }: { attemptId: string }) {
                           ×
                         </span>
                       )}
-                      {pending ? question.points : `${answer?.awardedPoints ?? 0}/${question.points}`}
+                      {pending
+                        ? question.points
+                        : `${answer?.awardedPoints ?? 0}/${question.points}`}
                     </span>
                   </header>
                   {question.type === 'multiple_choice' ? (
@@ -1068,7 +1091,12 @@ function CertificateNumber({ value }: { value: string }) {
   return (
     <strong className="lr-cert-number">
       {value}
-      <button type="button" aria-label="Copy certificate number" title="Copy certificate number" onClick={() => void copy()}>
+      <button
+        type="button"
+        aria-label="Copy certificate number"
+        title="Copy certificate number"
+        onClick={() => void copy()}
+      >
         {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
       </button>
     </strong>
@@ -1086,7 +1114,13 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
     finalAssessment: Assessment | null
     attempt: Assessment['attempt']
     assessmentHref: string | null
-  }>({ certificate: null, course: null, finalAssessment: null, attempt: null, assessmentHref: null })
+  }>({
+    certificate: null,
+    course: null,
+    finalAssessment: null,
+    attempt: null,
+    assessmentHref: null,
+  })
   useEffect(() => {
     let active = true
     void (async () => {
@@ -1106,18 +1140,24 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
       const ownedCertificate: Certificate | null = ownedItem.certificate ?? null
       const course = ownedItem.course ?? null
       const finalAssessment = ownedCertificate
-        ? (assessmentsValue?.assessments ?? []).find(
+        ? ((assessmentsValue?.assessments ?? []).find(
             (item) => item.courseId === ownedCertificate.courseId,
-          ) ?? null
+          ) ?? null)
         : null
       const attempt = finalAssessment?.attempt ?? null
-      const assessmentHref =
+      const ownedAssessmentHref =
         attempt && attempt.status !== 'in_progress'
-          ? `/assessment-attempts/${attempt.id}`
+          ? assessmentAttemptHref(attempt.id)
           : finalAssessment
-            ? `/assessments/${finalAssessment.id}`
+            ? assessmentHref(finalAssessment.id)
             : null
-      setOwned({ certificate: ownedCertificate, course, finalAssessment, attempt, assessmentHref })
+      setOwned({
+        certificate: ownedCertificate,
+        course,
+        finalAssessment,
+        attempt,
+        assessmentHref: ownedAssessmentHref,
+      })
     })()
     return () => {
       active = false
@@ -1144,7 +1184,10 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
               : 'No DANVIC certificate matches this certificate number.'
           }
           actions={
-            <Link href="/verify-certificate" className="sb-button sb-button--ghost sb-button--md lr-cert-verify-another">
+            <Link
+              href="/verify-certificate"
+              className="sb-button sb-button--ghost sb-button--md lr-cert-verify-another"
+            >
               Verify another
             </Link>
           }
@@ -1214,9 +1257,7 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
                             : 'red'
                       }
                     >
-                      {owned.attempt.passed
-                        ? 'passed'
-                        : owned.attempt.status.replace('_', ' ')}
+                      {owned.attempt.passed ? 'passed' : owned.attempt.status.replace('_', ' ')}
                     </Badge>
                   ) : null}
                 </div>
@@ -1249,7 +1290,10 @@ export function CertificateView({ certificateNumber }: { certificateNumber: stri
             title="We could not verify this number"
             description="Check the number carefully or scan the QR code printed on the certificate."
             action={
-              <Link href="/verify-certificate" className="sb-button sb-button--primary sb-button--md">
+              <Link
+                href="/verify-certificate"
+                className="sb-button sb-button--primary sb-button--md"
+              >
                 <CalendarCheck aria-hidden="true" /> Try again
               </Link>
             }
@@ -1344,7 +1388,8 @@ export function AuthorView({ authorId }: { authorId: string }) {
                     : 'No ratings yet'
                 }
               >
-                {rating.count ? rating.average.toFixed(1) : '—'} <Star aria-hidden="true" fill="currentColor" />
+                {rating.count ? rating.average.toFixed(1) : '—'}{' '}
+                <Star aria-hidden="true" fill="currentColor" />
                 <small>{rating.count ? `(${rating.count})` : 'No ratings yet'}</small>
               </span>
             </>
@@ -1371,7 +1416,10 @@ export function AuthorView({ authorId }: { authorId: string }) {
             <div className={styles.links} aria-label="Author links">
               {profileLinks.map(({ label, href, network }) => (
                 <a href={href} key={label} target="_blank" rel="noreferrer">
-                  <span className={`${styles.socialIcon} ${socialIconClasses[network]}`} aria-hidden="true" />
+                  <span
+                    className={`${styles.socialIcon} ${socialIconClasses[network]}`}
+                    aria-hidden="true"
+                  />
                   {label}
                 </a>
               ))}
@@ -1495,9 +1543,6 @@ export function CourseRouteView() {
 
 export function CatchAllViews() {
   const pathname = usePathname().replace(/\/+$/, '') || '/'
-
-  const demoAttachment = pathname.match(/^\/demo\/attachments\/([^/]+)$/)
-  if (demoAttachment) return <DemoAttachmentView />
 
   const recorder = pathname.match(/^\/live-recorder\/([^/]+)$/)
   if (recorder) return <RecorderView sessionId={recorder[1] ?? ''} />

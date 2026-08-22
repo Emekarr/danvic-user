@@ -7,6 +7,7 @@ import type { Assessment, AssessmentAttempt } from '@danvic/api-client'
 import { apiFetch } from '@danvic/api-client'
 import { Button, FormMessage, Textarea } from '@danvic/ui'
 import { CheckCircle2, Clock3, PlayCircle } from 'lucide-react'
+import { assessmentAttemptHref, assessmentHref } from '@/lib/course-route'
 
 export function StartAssessmentButton({
   assessmentId,
@@ -29,8 +30,8 @@ export function StartAssessmentButton({
           setError('')
           try {
             await apiFetch(`/api/assessments/${assessmentId}/start`, { method: 'POST', body: '{}' })
-            if (navigate) router.push(`/assessments/${assessmentId}`)
-            router.refresh()
+            if (navigate) router.push(assessmentHref(assessmentId))
+            else router.refresh()
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Assessment could not be started')
           } finally {
@@ -92,8 +93,7 @@ export function AssessmentPlayer({
           })),
         }),
       })
-      router.push(`/assessment-attempts/${attempt.id}`)
-      router.refresh()
+      router.push(assessmentAttemptHref(attempt.id))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Assessment could not be submitted')
     } finally {
@@ -129,12 +129,22 @@ export function AssessmentPlayer({
                 </div>
               ) : null}
               {question.mediaType === 'video' && question.mediaUrl ? (
-                <video className="lr-question-media" src={question.mediaUrl} controls preload="metadata">
+                <video
+                  className="lr-question-media"
+                  src={question.mediaUrl}
+                  controls
+                  preload="metadata"
+                >
                   Your browser cannot play this video.
                 </video>
               ) : null}
               {question.mediaType === 'audio' && question.mediaUrl ? (
-                <audio className="lr-question-audio" src={question.mediaUrl} controls preload="metadata">
+                <audio
+                  className="lr-question-audio"
+                  src={question.mediaUrl}
+                  controls
+                  preload="metadata"
+                >
                   Your browser cannot play this audio.
                 </audio>
               ) : null}

@@ -9,7 +9,7 @@ import { CalendarClock, CheckCircle2, Clock3, Search, UserRound } from 'lucide-r
 import { CourseCover } from './course-cover-display'
 import { CourseBookmarkButton, EnrollButton, PaidEnrollButton } from './course-participation'
 import { StaticRouteLink } from './static-route-link'
-import { courseHref } from '@/lib/course-route'
+import { authorHref, courseHref } from '@/lib/course-route'
 
 export function CatalogCourseList({
   initialCourses,
@@ -73,7 +73,11 @@ export function CatalogCourseList({
 
   return (
     <>
-      <label className="lr-course-search" aria-label="Search the course catalog" aria-busy={searching || undefined}>
+      <label
+        className="lr-course-search"
+        aria-label="Search the course catalog"
+        aria-busy={searching || undefined}
+      >
         <Search aria-hidden="true" />
         <Input
           value={query}
@@ -87,51 +91,89 @@ export function CatalogCourseList({
           {courses.map((course) => {
             const upcomingLive = upcomingLiveCourses.has(course.id)
             return (
-            <article className="lr-catalog-row" key={course.id}>
-              <CourseCover course={course} className="lr-catalog-media" showFallback />
-              <div className="lr-catalog-head">
-                <h3>{course.name}</h3>
-                <Badge tone={course.type === 'live' ? 'violet' : 'blue'}>{course.type}</Badge>
-              </div>
-              <p>
-                {course.type === 'live'
-                  ? 'Scheduled live learning session.'
-                  : 'Premade learning available at your pace.'}
-              </p>
-              <div className="sb-course-meta">
-                <span><Clock3 aria-hidden="true" /> {course.durationMinutes} min</span>
-                <span><CalendarClock aria-hidden="true" /> {course.scheduledAt ? new Date(course.scheduledAt).toLocaleString('en-NG') : '-'}</span>
-                <span>{course.accessType === 'paid' ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(course.priceKobo / 100) : 'Free'}</span>
-              </div>
-              <div className="lr-catalog-actions">
-                <StaticRouteLink href={`/authors/${course.createdByAuthorId}`} className="lr-author-link">
-                  <UserRound aria-hidden="true" /> {course.authorName}
-                </StaticRouteLink>
-                <Link href={courseHref(course.id)} className="sb-button sb-button--secondary sb-button--md">View course</Link>
-                {enrolled.has(course.id) ? (
-                  <span className="lr-enrolled-badge"><CheckCircle2 aria-hidden="true" /> Enrolled</span>
-                ) : upcomingLive && canEnroll ? (
-                  <CourseBookmarkButton
-                    courseId={course.id}
-                    initialBookmarked={bookmarked.has(course.id)}
-                    onChange={(enabled) =>
-                      setBookmarked((current) => {
-                        const next = new Set(current)
-                        if (enabled) next.add(course.id)
-                        else next.delete(course.id)
-                        return next
-                      })
-                    }
-                  />
-                ) : upcomingLive ? (
-                  <Link href={`/login?next=${encodeURIComponent(courseHref(course.id))}`} className="sb-button sb-button--primary sb-button--md">Sign in to bookmark</Link>
-                ) : canEnroll ? (
-                  course.accessType === 'paid' ? <PaidEnrollButton courseId={course.id} priceKobo={course.priceKobo} /> : <EnrollButton courseId={course.id} />
-                ) : (
-                  <Link href={`/login?next=${encodeURIComponent(courseHref(course.id))}`} className="sb-button sb-button--primary sb-button--md">Enroll</Link>
-                )}
-              </div>
-            </article>
+              <article className="lr-catalog-row" key={course.id}>
+                <CourseCover course={course} className="lr-catalog-media" showFallback />
+                <div className="lr-catalog-head">
+                  <h3>{course.name}</h3>
+                  <Badge tone={course.type === 'live' ? 'violet' : 'blue'}>{course.type}</Badge>
+                </div>
+                <p>
+                  {course.type === 'live'
+                    ? 'Scheduled live learning session.'
+                    : 'Premade learning available at your pace.'}
+                </p>
+                <div className="sb-course-meta">
+                  <span>
+                    <Clock3 aria-hidden="true" /> {course.durationMinutes} min
+                  </span>
+                  <span>
+                    <CalendarClock aria-hidden="true" />{' '}
+                    {course.scheduledAt
+                      ? new Date(course.scheduledAt).toLocaleString('en-NG')
+                      : '-'}
+                  </span>
+                  <span>
+                    {course.accessType === 'paid'
+                      ? new Intl.NumberFormat('en-NG', {
+                          style: 'currency',
+                          currency: 'NGN',
+                        }).format(course.priceKobo / 100)
+                      : 'Free'}
+                  </span>
+                </div>
+                <div className="lr-catalog-actions">
+                  <StaticRouteLink
+                    href={authorHref(course.createdByAuthorId)}
+                    className="lr-author-link"
+                  >
+                    <UserRound aria-hidden="true" /> {course.authorName}
+                  </StaticRouteLink>
+                  <Link
+                    href={courseHref(course.id)}
+                    className="sb-button sb-button--secondary sb-button--md"
+                  >
+                    View course
+                  </Link>
+                  {enrolled.has(course.id) ? (
+                    <span className="lr-enrolled-badge">
+                      <CheckCircle2 aria-hidden="true" /> Enrolled
+                    </span>
+                  ) : upcomingLive && canEnroll ? (
+                    <CourseBookmarkButton
+                      courseId={course.id}
+                      initialBookmarked={bookmarked.has(course.id)}
+                      onChange={(enabled) =>
+                        setBookmarked((current) => {
+                          const next = new Set(current)
+                          if (enabled) next.add(course.id)
+                          else next.delete(course.id)
+                          return next
+                        })
+                      }
+                    />
+                  ) : upcomingLive ? (
+                    <Link
+                      href={`/login?next=${encodeURIComponent(courseHref(course.id))}`}
+                      className="sb-button sb-button--primary sb-button--md"
+                    >
+                      Sign in to bookmark
+                    </Link>
+                  ) : canEnroll ? (
+                    course.accessType === 'paid' ? (
+                      <PaidEnrollButton courseId={course.id} priceKobo={course.priceKobo} />
+                    ) : (
+                      <EnrollButton courseId={course.id} />
+                    )
+                  ) : (
+                    <Link
+                      href={`/login?next=${encodeURIComponent(courseHref(course.id))}`}
+                      className="sb-button sb-button--primary sb-button--md"
+                    >
+                      Enroll
+                    </Link>
+                  )}
+                </div>
+              </article>
             )
           })}
         </div>

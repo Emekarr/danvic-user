@@ -1,10 +1,5 @@
 export type CoursePageView =
-  | 'details'
-  | 'study'
-  | 'live'
-  | 'recordings'
-  | 'recording'
-  | 'attachment'
+  'details' | 'study' | 'live' | 'recordings' | 'recording' | 'attachment'
 
 export function courseHref(
   courseId: string,
@@ -16,4 +11,20 @@ export function courseHref(
   if (view === 'recording' && resourceId) params.set('recordingId', resourceId)
   if (view === 'attachment' && resourceId) params.set('attachmentId', resourceId)
   return `/course?${params.toString()}`
+}
+
+export function assessmentHref(assessmentId: string) {
+  return `/assessment?assessmentId=${encodeURIComponent(assessmentId)}`
+}
+
+export function assessmentAttemptHref(attemptId: string) {
+  return `/assessment-attempt?attemptId=${encodeURIComponent(attemptId)}`
+}
+
+export function certificateHref(certificateNumber: string) {
+  return `/certificate?number=${encodeURIComponent(certificateNumber)}`
+}
+
+export function authorHref(authorId: string) {
+  return `/author?authorId=${encodeURIComponent(authorId)}`
 }
