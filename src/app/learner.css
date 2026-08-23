@@ -1335,18 +1335,18 @@
 }
 
 .lr-author-rating-stars button[data-active] {
-  color: #d97706;
+  color: var(--danvic-gold);
 }
 
 .lr-author-rating-stars button:hover,
 .lr-author-rating-stars button:focus,
 .lr-author-rating-stars button:focus-visible {
-  background: #fff7ed;
+  background: var(--danvic-gold-soft);
   outline: 2px solid transparent;
 }
 
 .lr-author-rating-stars button:focus-visible {
-  outline-color: #fbbf24;
+  outline-color: var(--danvic-gold);
   outline-offset: 2px;
 }
 
@@ -2669,7 +2669,7 @@
   align-items: center;
   gap: 5px;
   margin-left: 12px;
-  color: #d97706;
+  color: var(--danvic-gold-deep);
   font-size: 18px;
   font-weight: 800;
   letter-spacing: 0;
@@ -2703,7 +2703,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #2563eb;
+  color: var(--danvic-green);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -2716,12 +2716,12 @@
   white-space: nowrap;
 }
 .ad-author-links a:hover {
-  color: #1d4ed8;
+  color: var(--danvic-green-strong);
   text-decoration: underline;
   transform: translateY(-1px);
 }
 .ad-author-links a:focus-visible {
-  outline: 2px solid #93c5fd;
+  outline: 2px solid rgba(15, 122, 59, 0.35);
   outline-offset: 3px;
   border-radius: 3px;
 }
@@ -3882,9 +3882,9 @@
 }
 
 .lc-mode-status.is-active {
-  border-color: #93c5fd;
-  color: #1d4ed8;
-  background: #eff6ff;
+  border-color: rgba(15, 122, 59, 0.4);
+  color: var(--danvic-green-strong);
+  background: var(--danvic-green-soft);
 }
 
 .lc-stage--whiteboard .lc-whiteboard {
@@ -3930,8 +3930,8 @@
   --lc-ink: #172033;
   --lc-muted: #667085;
   --lc-line: #e5e9f0;
-  --lc-blue: #2f6fed;
-  --lc-blue-soft: #edf4ff;
+  --lc-blue: #0f7a3b;
+  --lc-blue-soft: #e9f4ee;
   min-height: min(100vh, 920px);
   border: 1px solid var(--lc-line);
   border-radius: 24px;

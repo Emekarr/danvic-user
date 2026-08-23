@@ -6,7 +6,7 @@
 .page :global(.ad-details > div) { border-bottom: 0; }
 .page :global(.ad-details) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .page :global(.sb-page-header h1) {
-  color: #172033;
+  color: var(--danvic-navy);
   font-size: clamp(32px, 3vw, 42px);
   font-weight: 800;
   letter-spacing: -0.045em;
@@ -26,7 +26,7 @@
   align-items: center;
   gap: 5px;
   margin-left: 12px;
-  color: #d97706;
+  color: var(--danvic-gold-deep);
   font-size: 18px;
   font-weight: 800;
   letter-spacing: 0;
@@ -60,7 +60,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #2563eb;
+  color: var(--danvic-green);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -70,8 +70,8 @@
   transition: color 150ms ease, transform 150ms ease;
   white-space: nowrap;
 }
-.links a:hover { color: #1d4ed8; text-decoration: underline; transform: translateY(-1px); }
-.links a:focus-visible { outline: 2px solid #93c5fd; outline-offset: 3px; border-radius: 3px; }
+.links a:hover { color: var(--danvic-green-strong); text-decoration: underline; transform: translateY(-1px); }
+.links a:focus-visible { outline: 2px solid rgba(15, 122, 59, 0.35); outline-offset: 3px; border-radius: 3px; }
 
 .socialIcon {
   width: 16px;
