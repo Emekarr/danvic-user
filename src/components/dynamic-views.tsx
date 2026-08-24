@@ -451,8 +451,7 @@ export function CourseView({ courseId }: { courseId: string }) {
           >
             Meet the course author
           </StaticRouteLink>
-          {course.type === 'live' &&
-          state.sessions.some(
+          {state.sessions.some(
             (item) => item.status === 'live' || Boolean(item.scheduledAt),
           ) ? (
             <Card style={{ marginBottom: 20 }}>
