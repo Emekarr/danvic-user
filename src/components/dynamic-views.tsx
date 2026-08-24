@@ -393,14 +393,12 @@ export function CourseView({ courseId }: { courseId: string }) {
                   percent={progressPercent}
                   className="lr-course-progress lr-course-progress--header"
                 />
-                {course.type !== 'live' ? (
-                  <Link
-                    href={courseHref(course.id, 'study')}
-                    className="sb-button sb-button--primary sb-button--md lr-course-resume"
-                  >
-                    Resume studying
-                  </Link>
-                ) : null}
+                <Link
+                  href={courseHref(course.id, 'study')}
+                  className="sb-button sb-button--primary sb-button--md lr-course-resume"
+                >
+                  Resume studying
+                </Link>
                 {course.type === 'live' && state.session?.status === 'live' ? (
                   <Link
                     href={courseHref(course.id, 'live', state.session.id)}
@@ -453,7 +451,10 @@ export function CourseView({ courseId }: { courseId: string }) {
           >
             Meet the course author
           </StaticRouteLink>
-          {course.type === 'live' && state.sessions.length ? (
+          {course.type === 'live' &&
+          state.sessions.some(
+            (item) => item.status === 'live' || Boolean(item.scheduledAt),
+          ) ? (
             <Card style={{ marginBottom: 20 }}>
               <div className="sb-card-body">
                 <Badge tone="violet" dot>
@@ -464,7 +465,9 @@ export function CourseView({ courseId }: { courseId: string }) {
                   email when a new class is scheduled.
                 </p>
                 <ul style={{ margin: '12px 0 0', paddingLeft: 18 }}>
-                  {state.sessions.map((item) => (
+                  {state.sessions
+                    .filter((item) => item.status === 'live' || Boolean(item.scheduledAt))
+                    .map((item) => (
                     <li
                       key={item.id}
                       style={{
@@ -505,7 +508,8 @@ export function CourseView({ courseId }: { courseId: string }) {
                         </Link>
                       ) : null}
                     </li>
-                  ))}
+                      ))
+                    }
                 </ul>
               </div>
             </Card>

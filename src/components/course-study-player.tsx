@@ -4,9 +4,11 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
 import type { Attachment, StudentCourseAggregate } from '@danvic/api-client'
-import { Button, CustomDropdown } from '@danvic/ui'
+import { apiFetch } from '@danvic/api-client'
+import { Button, CustomDropdown, FormMessage } from '@danvic/ui'
 import {
   ArrowDown,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -130,6 +132,22 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
   const moduleAttachments = active
     ? attachments.filter((attachment) => attachment.moduleId === active.id)
     : []
+  const allModulesComplete =
+    modules.length > 0 && modules.every((module) => completed.has(module.id))
+  const alreadyCompleted = Boolean(value.enrollment.completedAt)
+  const [finishing, setFinishing] = useState(false)
+  const [finishError, setFinishError] = useState('')
+  const finishCourse = async () => {
+    setFinishing(true)
+    setFinishError('')
+    try {
+      await apiFetch(`/api/courses/${course.id}/complete`, { method: 'POST', body: '{}' })
+      router.replace(courseHref(course.id))
+    } catch (cause) {
+      setFinishError(cause instanceof Error ? cause.message : 'The course could not be ended')
+      setFinishing(false)
+    }
+  }
 
   return (
     <main className="lr-study-player">
@@ -211,6 +229,17 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
                         if (courseCompleted) router.replace(courseHref(course.id))
                       }}
                     />
+                    {allModulesComplete && !alreadyCompleted ? (
+                      <div style={{ marginTop: 18 }}>
+                        <Button busy={finishing} onClick={() => void finishCourse()}>
+                          <CheckCircle2 aria-hidden="true" /> Finish course — I am done
+                        </Button>
+                        <p className="lr-study-locked" style={{ marginTop: 8 }}>
+                          Ending the course marks your enrollment as complete.
+                        </p>
+                        <FormMessage>{finishError}</FormMessage>
+                      </div>
+                    ) : null}
                   </>
                 )}
                 <div className="lr-study-pagination">
