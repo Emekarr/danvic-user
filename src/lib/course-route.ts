@@ -8,6 +8,7 @@ export function courseHref(
 ) {
   const params = new URLSearchParams({ courseId })
   if (view !== 'details') params.set('view', view)
+  if (view === 'live' && resourceId) params.set('sessionId', resourceId)
   if (view === 'recording' && resourceId) params.set('recordingId', resourceId)
   if (view === 'attachment' && resourceId) params.set('attachmentId', resourceId)
   return `/course?${params.toString()}`

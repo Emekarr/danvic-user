@@ -171,7 +171,7 @@ function renderNode(node: ContentNode, key: string): ReactNode {
       </pre>
     )
   if (node.type === 'image') {
-    const src = safeUrl(node.attrs?.src, ['https:'])
+    const src = safeUrl(node.attrs?.src, ['http:', 'https:'])
     return src ? (
       <figure key={key}>
         <img

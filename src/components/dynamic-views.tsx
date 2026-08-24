@@ -59,6 +59,7 @@ import {
   useCourseAggregate,
   useLiveSession,
   useRecordings,
+  useResource,
 } from '@/lib/data'
 import {
   assessmentAttemptHref,
@@ -156,6 +157,7 @@ export function CourseView({ courseId }: { courseId: string }) {
     phase: 'loading' | 'participating' | 'preview' | 'unavailable'
     aggregate: StudentCourseAggregate | null
     session: LiveSession | null
+    sessions: LiveSession[]
     recordings: LiveRecording[]
     finalAssessment: Assessment | null
     preview: CoursePreview | null
@@ -169,6 +171,7 @@ export function CourseView({ courseId }: { courseId: string }) {
     phase: 'loading',
     aggregate: null,
     session: null,
+    sessions: [],
     recordings: [],
     finalAssessment: null,
     preview: null,
@@ -203,9 +206,9 @@ export function CourseView({ courseId }: { courseId: string }) {
       }
       if (!active) return
       if (aggregate) {
-        const [sessionValue, recordingsValue, assessmentsValue] = await Promise.all([
-          apiFetch<{ session: LiveSession | null }>(
-            `/api/live/courses/${encodeURIComponent(courseId)}/live-session`,
+        const [sessionsValue, recordingsValue, assessmentsValue] = await Promise.all([
+          apiFetch<{ sessions: LiveSession[] }>(
+            `/api/live/courses/${encodeURIComponent(courseId)}/live-sessions`,
           ).catch(() => null),
           apiFetch<{ recordings: LiveRecording[] }>(
             `/api/live/courses/${encodeURIComponent(courseId)}/recordings`,
@@ -213,10 +216,16 @@ export function CourseView({ courseId }: { courseId: string }) {
           apiFetch<{ assessments: Assessment[] }>('/api/assessments').catch(() => null),
         ])
         if (!active) return
+        const sessions = [...(sessionsValue?.sessions ?? [])].sort(
+          (left, right) =>
+            new Date(right.scheduledAt ?? right.createdAt).getTime() -
+            new Date(left.scheduledAt ?? left.createdAt).getTime(),
+        )
         setState({
           phase: 'participating',
           aggregate,
-          session: sessionValue?.session ?? null,
+          session: sessions.find((item) => item.status === 'live') ?? sessions[0] ?? null,
+          sessions,
           recordings: recordingsValue?.recordings ?? [],
           finalAssessment:
             (assessmentsValue?.assessments ?? []).find((item) => item.courseId === courseId) ??
@@ -240,6 +249,7 @@ export function CourseView({ courseId }: { courseId: string }) {
           phase: 'unavailable',
           aggregate: null,
           session: null,
+          sessions: [],
           recordings: [],
           finalAssessment: null,
           preview: null,
@@ -271,6 +281,7 @@ export function CourseView({ courseId }: { courseId: string }) {
             phase: 'preview',
             aggregate: null,
             session: null,
+            sessions: [],
             recordings: [],
             finalAssessment: null,
             preview,
@@ -287,6 +298,7 @@ export function CourseView({ courseId }: { courseId: string }) {
             phase: 'unavailable',
             aggregate: null,
             session: null,
+            sessions: [],
             recordings: [],
             finalAssessment: null,
             preview: null,
@@ -389,9 +401,9 @@ export function CourseView({ courseId }: { courseId: string }) {
                     Resume studying
                   </Link>
                 ) : null}
-                {course.type === 'live' ? (
+                {course.type === 'live' && state.session?.status === 'live' ? (
                   <Link
-                    href={courseHref(course.id, 'live')}
+                    href={courseHref(course.id, 'live', state.session.id)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="sb-button sb-button--primary sb-button--md lr-course-resume"
@@ -441,6 +453,63 @@ export function CourseView({ courseId }: { courseId: string }) {
           >
             Meet the course author
           </StaticRouteLink>
+          {course.type === 'live' && state.sessions.length ? (
+            <Card style={{ marginBottom: 20 }}>
+              <div className="sb-card-body">
+                <Badge tone="violet" dot>
+                  Live classes
+                </Badge>
+                <p style={{ marginTop: 10 }}>
+                  You can join a class only while it is live. Everyone enrolled is notified by
+                  email when a new class is scheduled.
+                </p>
+                <ul style={{ margin: '12px 0 0', paddingLeft: 18 }}>
+                  {state.sessions.map((item) => (
+                    <li
+                      key={item.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        padding: '6px 0',
+                      }}
+                    >
+                      <span>
+                        <strong>
+                          {item.scheduledAt
+                            ? new Date(item.scheduledAt).toLocaleString()
+                            : 'Unscheduled class'}
+                        </strong>{' '}
+                        · {item.durationMinutes} min{' '}
+                        <Badge
+                          tone={
+                            item.status === 'live'
+                              ? 'green'
+                              : item.status === 'ended'
+                                ? 'blue'
+                                : 'violet'
+                          }
+                        >
+                          {item.status}
+                        </Badge>
+                      </span>
+                      {item.status === 'live' ? (
+                        <Link
+                          href={courseHref(course.id, 'live', item.id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="sb-button sb-button--primary sb-button--sm"
+                        >
+                          Join
+                        </Link>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Card>
+          ) : null}
           {state.finalAssessment && !enrollment.completedAt ? (
             <Card className="as-course-final">
               <div>
@@ -639,10 +708,24 @@ export function StudyView({ courseId }: { courseId: string }) {
   return <CourseStudyPlayer value={data} />
 }
 
-export function LiveView({ courseId }: { courseId: string }) {
-  const { data, loading, error } = useLiveSession(courseId)
-  if (loading) return <LearnerShellLoading label="Checking the live session…" />
-  if (error || !data?.session || data.session.status !== 'live')
+export function LiveView({
+  courseId,
+  sessionId,
+}: {
+  courseId: string
+  sessionId?: string | undefined
+}) {
+  const latest = useLiveSession(courseId)
+  const specific = useResource<{ session: LiveSession }>(
+    sessionId ? `/api/live/live-sessions/${encodeURIComponent(sessionId)}/state` : '/api/auth/me',
+    false,
+    Boolean(sessionId),
+  )
+  if (latest.loading || (sessionId && specific.loading))
+    return <LearnerShellLoading label="Checking the live session…" />
+  const session = sessionId ? specific.data?.session ?? null : latest.data?.session ?? null
+  const error = sessionId ? specific.error : latest.error
+  if (error || !session || session.status !== 'live')
     return (
       <LearnerAppShell>
         <EmptyState
@@ -650,7 +733,7 @@ export function LiveView({ courseId }: { courseId: string }) {
           title="The class is not live"
           description={
             error ||
-            (data?.session?.status === 'ended'
+            (session?.status === 'ended'
               ? 'This live class has ended.'
               : 'The author has not started this live class yet.')
           }
@@ -665,7 +748,7 @@ export function LiveView({ courseId }: { courseId: string }) {
         />
       </LearnerAppShell>
     )
-  return <StudentLiveClassroom sessionId={data.session.id} />
+  return <StudentLiveClassroom sessionId={session.id} />
 }
 
 export function RecordingsView({ courseId }: { courseId: string }) {
@@ -1519,7 +1602,10 @@ export function CourseRouteView() {
 
   if (view === 'details') return <CourseView courseId={courseId} />
   if (view === 'study') return <StudyView courseId={courseId} />
-  if (view === 'live') return <LiveView courseId={courseId} />
+  if (view === 'live')
+    return (
+      <LiveView courseId={courseId} sessionId={query.get('sessionId')?.trim() || undefined} />
+    )
   if (view === 'recordings') return <RecordingsView courseId={courseId} />
   if (view === 'recording') {
     const recordingId = query.get('recordingId')?.trim() ?? ''
