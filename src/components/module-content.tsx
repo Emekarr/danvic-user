@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
-import type { CSSProperties, ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { apiFetch, type Attachment } from '@danvic/api-client'
 
 type ContentMark = {
   type?: string
@@ -82,9 +83,17 @@ function markedText(node: ContentNode, key: string): ReactNode {
     else if (mark.type === 'subscript') result = <sub key={markKey}>{result}</sub>
     else if (mark.type === 'superscript') result = <sup key={markKey}>{result}</sup>
     else if (mark.type === 'textStyle')
-      result = <span key={markKey} style={safeTextStyle(mark.attrs)}>{result}</span>
+      result = (
+        <span key={markKey} style={safeTextStyle(mark.attrs)}>
+          {result}
+        </span>
+      )
     else if (mark.type === 'highlight')
-      result = <mark key={markKey} style={{ backgroundColor: safeColor(mark.attrs?.color) }}>{result}</mark>
+      result = (
+        <mark key={markKey} style={{ backgroundColor: safeColor(mark.attrs?.color) }}>
+          {result}
+        </mark>
+      )
     else if (mark.type === 'link') {
       const href = safeUrl(mark.attrs?.href, ['http:', 'https:', 'mailto:'])
       if (href)
@@ -110,15 +119,24 @@ function alignment(node: ContentNode): CSSProperties | undefined {
     : undefined
 }
 
-function renderNodes(nodes: ContentNode[] | undefined, parentKey: string): ReactNode[] {
-  return (nodes ?? []).map((node, index) => renderNode(node, `${parentKey}-${index}`))
+type ModuleContentOptions = {
+  courseId?: string
+  attachmentsByPath: Map<string, Attachment>
 }
 
-function renderNode(node: ContentNode, key: string): ReactNode {
+function renderNodes(
+  nodes: ContentNode[] | undefined,
+  parentKey: string,
+  options: ModuleContentOptions,
+): ReactNode[] {
+  return (nodes ?? []).map((node, index) => renderNode(node, `${parentKey}-${index}`, options))
+}
+
+function renderNode(node: ContentNode, key: string, options: ModuleContentOptions): ReactNode {
   if (node.type === 'text') return markedText(node, key)
   if (node.type === 'hardBreak') return <br key={key} />
   if (node.type === 'horizontalRule') return <hr key={key} />
-  const children = renderNodes(node.content, key)
+  const children = renderNodes(node.content, key, options)
   if (node.type === 'paragraph')
     return (
       <p key={key} style={alignment(node)}>
@@ -155,11 +173,21 @@ function renderNode(node: ContentNode, key: string): ReactNode {
     )
   }
   if (node.type === 'listItem') return <li key={key}>{children}</li>
-  if (node.type === 'taskList') return <ul className="lr-rich-task-list" key={key}>{children}</ul>
+  if (node.type === 'taskList')
+    return (
+      <ul className="lr-rich-task-list" key={key}>
+        {children}
+      </ul>
+    )
   if (node.type === 'taskItem')
     return (
       <li className="lr-rich-task-item" key={key}>
-        <input type="checkbox" checked={node.attrs?.checked === true} readOnly aria-label="Checklist item" />
+        <input
+          type="checkbox"
+          checked={node.attrs?.checked === true}
+          readOnly
+          aria-label="Checklist item"
+        />
         <div>{children}</div>
       </li>
     )
@@ -172,6 +200,23 @@ function renderNode(node: ContentNode, key: string): ReactNode {
     )
   if (node.type === 'image') {
     const src = safeUrl(node.attrs?.src, ['http:', 'https:'])
+    const attachmentPath =
+      typeof node.attrs?.attachmentPath === 'string' ? node.attrs.attachmentPath : undefined
+    const attachment = attachmentPath ? options.attachmentsByPath.get(attachmentPath) : undefined
+    if (attachment && options.courseId)
+      return (
+        <figure key={key}>
+          <PrivateModuleImage
+            courseId={options.courseId}
+            attachmentId={attachment.id}
+            fallbackSrc={src}
+            alt={typeof node.attrs?.alt === 'string' ? node.attrs.alt : ''}
+          />
+          {typeof node.attrs?.title === 'string' && node.attrs.title ? (
+            <figcaption>{node.attrs.title}</figcaption>
+          ) : null}
+        </figure>
+      )
     return src ? (
       <figure key={key}>
         <img
@@ -199,9 +244,53 @@ function renderNode(node: ContentNode, key: string): ReactNode {
   return <span key={key}>{children}</span>
 }
 
-export function ModuleContent({ value }: { value: string }) {
+function PrivateModuleImage({
+  courseId,
+  attachmentId,
+  fallbackSrc,
+  alt,
+}: {
+  courseId: string
+  attachmentId: string
+  fallbackSrc: string | null
+  alt: string
+}) {
+  const [src, setSrc] = useState(fallbackSrc)
+  useEffect(() => {
+    let active = true
+    void apiFetch<{ viewUrl: string }>(
+      `/api/courses/${encodeURIComponent(courseId)}/attachments/${encodeURIComponent(attachmentId)}/view`,
+    )
+      .then((result) => {
+        if (active) setSrc(result.viewUrl)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [attachmentId, courseId])
+  return src ? <img src={src} alt={alt} loading="lazy" /> : <span>Image unavailable.</span>
+}
+
+export function ModuleContent({
+  value,
+  courseId,
+  attachments = [],
+}: {
+  value: string
+  courseId?: string
+  attachments?: Attachment[]
+}) {
   const document = parseContent(value)
   if (!document)
     return <div className="lr-rich-module-content lr-rich-module-content--legacy">{value}</div>
-  return <div className="lr-rich-module-content">{renderNodes(document.content, 'module')}</div>
+  const options: ModuleContentOptions = {
+    attachmentsByPath: new Map(
+      attachments.map((attachment) => [attachment.attachmentPath, attachment]),
+    ),
+    ...(courseId ? { courseId } : {}),
+  }
+  return (
+    <div className="lr-rich-module-content">{renderNodes(document.content, 'module', options)}</div>
+  )
 }

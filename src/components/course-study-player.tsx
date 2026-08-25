@@ -215,7 +215,11 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
                 ) : (
                   <>
                     <div className="lr-study-content">
-                      <ModuleContent value={active.content} />
+                      <ModuleContent
+                        value={active.content}
+                        courseId={course.id}
+                        attachments={attachments}
+                      />
                     </div>
                     <CompleteModuleButton
                       courseId={course.id}
