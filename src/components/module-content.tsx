@@ -200,6 +200,11 @@ function renderNode(node: ContentNode, key: string, options: ModuleContentOption
     )
   if (node.type === 'image') {
     const src = safeUrl(node.attrs?.src, ['http:', 'https:'])
+    // Signed object-storage URLs saved by the editor expire within minutes; they can
+    // never be used directly and must always resolve through an attachment record.
+    const staleSignedSrc =
+      src !== null && /r2\.cloudflarestorage\.com/.test(src) && /[?&]X-Amz-Signature=/.test(src)
+    const liveSrc = staleSignedSrc ? null : src
     const attachmentPath =
       typeof node.attrs?.attachmentPath === 'string' ? node.attrs.attachmentPath : undefined
     const attachment = attachmentPath ? options.attachmentsByPath.get(attachmentPath) : undefined
@@ -211,7 +216,7 @@ function renderNode(node: ContentNode, key: string, options: ModuleContentOption
           <PrivateModuleImage
             courseId={options.courseId}
             attachmentId={attachment.id}
-            fallbackSrc={src}
+            fallbackSrc={liveSrc}
             alt={typeof node.attrs?.alt === 'string' ? node.attrs.alt : ''}
             width={width}
             height={height}
@@ -221,10 +226,16 @@ function renderNode(node: ContentNode, key: string, options: ModuleContentOption
           ) : null}
         </figure>
       )
-    return src ? (
+    if (attachment && options.courseId)
+      return (
+        <figure key={key}>
+          <span>Image unavailable.</span>
+        </figure>
+      )
+    return liveSrc ? (
       <figure key={key}>
         <img
-          src={src}
+          src={liveSrc}
           alt={typeof node.attrs?.alt === 'string' ? node.attrs.alt : ''}
           loading="lazy"
           width={width}
@@ -234,7 +245,11 @@ function renderNode(node: ContentNode, key: string, options: ModuleContentOption
           <figcaption>{node.attrs.title}</figcaption>
         ) : null}
       </figure>
-    ) : null
+    ) : (
+      <figure key={key}>
+        <span>Image unavailable.</span>
+      </figure>
+    )
   }
   if (node.type === 'table')
     return (

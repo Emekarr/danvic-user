@@ -138,18 +138,24 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
   const [finishing, setFinishing] = useState(false)
   const [finishError, setFinishError] = useState('')
   const [finalAssessment, setFinalAssessment] = useState<Assessment | null>(null)
+  const loadFinalAssessment = useRef(() => {})
   useEffect(() => {
-    let active = true
-    void apiFetch<{ assessments: Assessment[] }>('/api/assessments')
-      .then((result) => {
-        if (!active) return
-        setFinalAssessment(
-          result.assessments.find((item) => item.courseId === course.id) ?? null,
-        )
-      })
-      .catch(() => undefined)
+    let cancelled = false
+    const load = async () => {
+      try {
+        const result = await apiFetch<{ assessments: Assessment[] }>('/api/assessments')
+        if (!cancelled)
+          setFinalAssessment(
+            result.assessments.find((item) => item.courseId === course.id) ?? null,
+          )
+      } catch {
+        if (!cancelled) setFinalAssessment(null)
+      }
+    }
+    loadFinalAssessment.current = load
+    void load()
     return () => {
-      active = false
+      cancelled = true
     }
   }, [course.id])
   const finishCourse = async () => {
@@ -159,7 +165,13 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
       await apiFetch(`/api/courses/${course.id}/complete`, { method: 'POST', body: '{}' })
       router.replace(courseHref(course.id))
     } catch (cause) {
-      setFinishError(cause instanceof Error ? cause.message : 'The course could not be ended')
+      const code = (cause as { code?: string }).code ?? ''
+      if (code === 'ASSESSMENT_REQUIRED') {
+        // An assessment gates completion; swap the finish button for the attempt button.
+        loadFinalAssessment.current()
+      } else {
+        setFinishError(cause instanceof Error ? cause.message : 'The course could not be ended')
+      }
       setFinishing(false)
     }
   }
@@ -257,7 +269,7 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
                                 href={assessmentHref(finalAssessment.id)}
                                 className="sb-button sb-button--primary sb-button--md"
                               >
-                                <CheckCircle2 aria-hidden="true" /> Proceed to assessment
+                                <CheckCircle2 aria-hidden="true" /> Attempt assessment
                               </Link>
                             ) : (
                               <span className="sb-button sb-button--soft sb-button--md" aria-disabled="true">
