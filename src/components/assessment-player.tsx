@@ -1,22 +1,23 @@
 'use client'
 
-import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Assessment, AssessmentAttempt } from '@danvic/api-client'
 import { apiFetch } from '@danvic/api-client'
 import { Button, FormMessage, Textarea } from '@danvic/ui'
-import { CheckCircle2, Clock3, PlayCircle } from 'lucide-react'
+import { CheckCircle2, Clock3, ExternalLink, Paperclip, PlayCircle } from 'lucide-react'
 import { assessmentAttemptHref, assessmentHref } from '@/lib/course-route'
 
 export function StartAssessmentButton({
   assessmentId,
   label = 'Start timed assessment',
   navigate = false,
+  onStarted,
 }: {
   assessmentId: string
   label?: string
   navigate?: boolean
+  onStarted?: () => void
 }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
@@ -31,6 +32,7 @@ export function StartAssessmentButton({
           try {
             await apiFetch(`/api/assessments/${assessmentId}/start`, { method: 'POST', body: '{}' })
             if (navigate) router.push(assessmentHref(assessmentId))
+            else if (onStarted) onStarted()
             else router.refresh()
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Assessment could not be started')
@@ -117,36 +119,31 @@ export function AssessmentPlayer({
                   {question.points} {question.points === 1 ? 'point' : 'points'}
                 </span>
               </header>
-              {question.mediaType === 'image' && question.mediaUrl ? (
-                <div className="lr-question-media">
-                  <Image
-                    src={question.mediaUrl}
-                    alt={`Diagram for question ${index + 1}`}
-                    width={1200}
-                    height={675}
-                    unoptimized
-                  />
-                </div>
-              ) : null}
-              {question.mediaType === 'video' && question.mediaUrl ? (
-                <video
-                  className="lr-question-media"
-                  src={question.mediaUrl}
-                  controls
-                  preload="metadata"
+              {question.mediaUrl ? (
+                <a
+                  className="lr-question-attachment"
+                  href={question.mediaUrl}
+                  target="_blank"
+                  rel="noreferrer"
                 >
-                  Your browser cannot play this video.
-                </video>
-              ) : null}
-              {question.mediaType === 'audio' && question.mediaUrl ? (
-                <audio
-                  className="lr-question-audio"
-                  src={question.mediaUrl}
-                  controls
-                  preload="metadata"
-                >
-                  Your browser cannot play this audio.
-                </audio>
+                  <span className="lr-resource-icon" data-kind="file">
+                    <Paperclip aria-hidden="true" />
+                  </span>
+                  <span className="lr-resource-copy">
+                    <strong>Attachment added</strong>
+                    <small>
+                      {question.mediaType === 'image'
+                        ? 'Image'
+                        : question.mediaType === 'video'
+                          ? 'Video'
+                          : question.mediaType === 'audio'
+                            ? 'Audio'
+                            : 'File'}{' '}
+                      · Click to view it in a new tab
+                    </small>
+                  </span>
+                  <ExternalLink aria-hidden="true" />
+                </a>
               ) : null}
               {question.type === 'multiple_choice' ? (
                 <fieldset className="lr-choice-list">
@@ -187,6 +184,16 @@ export function AssessmentPlayer({
             </section>
           )
         })}
+        <section className="lr-player-submit" aria-label="Submit assessment">
+          <p>
+            You have answered {answered} of {assessment.questions.length} questions. You can submit
+            with unanswered questions — submission is final.
+          </p>
+          <FormMessage>{error}</FormMessage>
+          <Button busy={busy} disabled={remaining === 0} onClick={() => void submit()}>
+            <CheckCircle2 aria-hidden="true" /> Submit assessment
+          </Button>
+        </section>
       </div>
       <aside className="lr-player-sidebar">
         <section className="lr-player-card lr-timer" data-urgent={remaining < 300 || undefined}>
@@ -214,11 +221,6 @@ export function AssessmentPlayer({
               {answered} of {assessment.questions.length}
             </strong>
           </div>
-          <p>You can submit with unanswered questions. Submission is final.</p>
-          <FormMessage>{error}</FormMessage>
-          <Button busy={busy} disabled={remaining === 0} onClick={() => void submit()}>
-            <CheckCircle2 aria-hidden="true" /> Submit assessment
-          </Button>
         </section>
       </aside>
     </div>

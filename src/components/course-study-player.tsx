@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useRef, useState } from 'react'
-import type { Attachment, StudentCourseAggregate } from '@danvic/api-client'
+import { useEffect, useRef, useState } from 'react'
+import type { Attachment, Assessment, StudentCourseAggregate } from '@danvic/api-client'
 import { apiFetch } from '@danvic/api-client'
 import { Button, CustomDropdown, FormMessage } from '@danvic/ui'
 import {
@@ -20,7 +20,7 @@ import {
   Volume2,
 } from 'lucide-react'
 import { CompleteModuleButton } from './course-participation'
-import { courseHref } from '@/lib/course-route'
+import { assessmentHref, courseHref } from '@/lib/course-route'
 import { ModuleContent } from './module-content'
 
 type AttachmentKind = 'image' | 'video' | 'audio' | 'link' | 'file'
@@ -137,6 +137,21 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
   const alreadyCompleted = Boolean(value.enrollment.completedAt)
   const [finishing, setFinishing] = useState(false)
   const [finishError, setFinishError] = useState('')
+  const [finalAssessment, setFinalAssessment] = useState<Assessment | null>(null)
+  useEffect(() => {
+    let active = true
+    void apiFetch<{ assessments: Assessment[] }>('/api/assessments')
+      .then((result) => {
+        if (!active) return
+        setFinalAssessment(
+          result.assessments.find((item) => item.courseId === course.id) ?? null,
+        )
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [course.id])
   const finishCourse = async () => {
     setFinishing(true)
     setFinishError('')
@@ -235,13 +250,38 @@ export function CourseStudyPlayer({ value }: { value: StudentCourseAggregate }) 
                     />
                     {allModulesComplete && !alreadyCompleted ? (
                       <div style={{ marginTop: 18 }}>
-                        <Button busy={finishing} onClick={() => void finishCourse()}>
-                          <CheckCircle2 aria-hidden="true" /> Finish course — I am done
-                        </Button>
-                        <p className="lr-study-locked" style={{ marginTop: 8 }}>
-                          Ending the course marks your enrollment as complete.
-                        </p>
-                        <FormMessage>{finishError}</FormMessage>
+                        {finalAssessment ? (
+                          <>
+                            {finalAssessment.availability === 'open' ? (
+                              <Link
+                                href={assessmentHref(finalAssessment.id)}
+                                className="sb-button sb-button--primary sb-button--md"
+                              >
+                                <CheckCircle2 aria-hidden="true" /> Proceed to assessment
+                              </Link>
+                            ) : (
+                              <span className="sb-button sb-button--soft sb-button--md" aria-disabled="true">
+                                {finalAssessment.availability === 'scheduled'
+                                  ? `Assessment opens ${new Date(finalAssessment.opensAt).toLocaleString()}`
+                                  : 'Assessment closed'}
+                              </span>
+                            )}
+                            <p className="lr-study-locked" style={{ marginTop: 8 }}>
+                              This course ends with its final assessment; passing it completes
+                              your enrollment.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <Button busy={finishing} onClick={() => void finishCourse()}>
+                              <CheckCircle2 aria-hidden="true" /> Finish course — I am done
+                            </Button>
+                            <p className="lr-study-locked" style={{ marginTop: 8 }}>
+                              Ending the course marks your enrollment as complete.
+                            </p>
+                            <FormMessage>{finishError}</FormMessage>
+                          </>
+                        )}
                       </div>
                     ) : null}
                   </>

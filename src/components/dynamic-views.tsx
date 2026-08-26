@@ -895,7 +895,7 @@ export function RecorderView({ sessionId }: { sessionId: string }) {
 
 export function AssessmentStartView({ assessmentId }: { assessmentId: string }) {
   const router = useRouter()
-  const { data: assessment, loading, error } = useAssessment(assessmentId)
+  const { data: assessment, loading, error, reload } = useAssessment(assessmentId)
   useEffect(() => {
     if (assessment?.attempt && assessment.attempt.status !== 'in_progress')
       router.replace(assessmentAttemptHref(assessment.attempt.id))
@@ -964,7 +964,11 @@ export function AssessmentStartView({ assessmentId }: { assessmentId: string }) 
               : ' This assessment does not allow retries.'}{' '}
             Written responses may remain pending while the author reviews them.
           </p>
-          <StartAssessmentButton assessmentId={assessment.id} label="Start assessment" />
+          <StartAssessmentButton
+            assessmentId={assessment.id}
+            label="Start assessment"
+            onStarted={reload}
+          />
         </section>
         <p className="lr-window">
           <CalendarClock aria-hidden="true" /> Available{' '}
