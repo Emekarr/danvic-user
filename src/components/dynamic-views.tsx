@@ -338,6 +338,7 @@ export function CourseView({ courseId }: { courseId: string }) {
       : modules.length
         ? Math.round((completed.size / modules.length) * 100)
         : 0
+    const finalAttempt = state.finalAssessment?.attempt ?? null
     return (
       <LearnerAppShell student={viewer ?? null}>
         <div className="lr-course-detail-page">
@@ -439,10 +440,6 @@ export function CourseView({ courseId }: { courseId: string }) {
                 {new Date(course.scheduledAt).toLocaleString()}
               </span>
             ) : null}
-            <CourseProgress
-              percent={progressPercent}
-              className="lr-course-progress lr-course-progress--meta"
-            />
           </div>
           <CourseCover course={course} className="lr-course-hero-media" />
           <StaticRouteLink
@@ -519,12 +516,29 @@ export function CourseView({ courseId }: { courseId: string }) {
                 <Badge tone="violet">Final assessment</Badge>
                 <h2>{state.finalAssessment.title}</h2>
                 <p>
-                  {modulesComplete
-                    ? 'You have completed the learning modules. Take this assessment to finalise the course.'
-                    : 'Complete every module to unlock the final assessment.'}
+                  {!finalAttempt
+                    ? modulesComplete
+                      ? 'You have completed the learning modules. Take this assessment to finalise the course.'
+                      : 'Complete every module to unlock the final assessment.'
+                    : finalAttempt.status === 'pending_review'
+                      ? 'Your responses were submitted and are awaiting author review.'
+                      : finalAttempt.passed
+                        ? 'You passed the final assessment.'
+                        : 'The assessment was graded; open your results for details.'}
                 </p>
               </div>
-              {modulesComplete && state.finalAssessment.availability === 'open' ? (
+              {finalAttempt && finalAttempt.status === 'pending_review' ? (
+                <span className="sb-button sb-button--soft sb-button--md" aria-disabled="true">
+                  Awaiting grading
+                </span>
+              ) : finalAttempt && finalAttempt.status === 'graded' ? (
+                <StaticRouteLink
+                  href={assessmentAttemptHref(finalAttempt.id)}
+                  className="sb-button sb-button--primary sb-button--md"
+                >
+                  See results
+                </StaticRouteLink>
+              ) : modulesComplete && state.finalAssessment.availability === 'open' ? (
                 <StaticRouteLink
                   href={assessmentHref(state.finalAssessment.id)}
                   className="sb-button sb-button--primary sb-button--md"
