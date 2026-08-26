@@ -145,6 +145,24 @@ export function AssessmentPlayer({
                   <ExternalLink aria-hidden="true" />
                 </a>
               ) : null}
+              {(question.resources ?? []).map((resource) => (
+                <a
+                  key={resource.id}
+                  className="lr-question-attachment"
+                  href={resource.url ?? '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <span className="lr-resource-icon" data-kind="file">
+                    <Paperclip aria-hidden="true" />
+                  </span>
+                  <span className="lr-resource-copy">
+                    <strong>{resource.fileName}</strong>
+                    <small>Resource · Click to view it in a new tab</small>
+                  </span>
+                  <ExternalLink aria-hidden="true" />
+                </a>
+              ))}
               {question.type === 'multiple_choice' ? (
                 <fieldset className="lr-choice-list">
                   <legend>Select all answers that apply</legend>
