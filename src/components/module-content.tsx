@@ -203,6 +203,8 @@ function renderNode(node: ContentNode, key: string, options: ModuleContentOption
     const attachmentPath =
       typeof node.attrs?.attachmentPath === 'string' ? node.attrs.attachmentPath : undefined
     const attachment = attachmentPath ? options.attachmentsByPath.get(attachmentPath) : undefined
+    const width = typeof node.attrs?.width === 'number' ? node.attrs.width : undefined
+    const height = typeof node.attrs?.height === 'number' ? node.attrs.height : undefined
     if (attachment && options.courseId)
       return (
         <figure key={key}>
@@ -211,6 +213,8 @@ function renderNode(node: ContentNode, key: string, options: ModuleContentOption
             attachmentId={attachment.id}
             fallbackSrc={src}
             alt={typeof node.attrs?.alt === 'string' ? node.attrs.alt : ''}
+            width={width}
+            height={height}
           />
           {typeof node.attrs?.title === 'string' && node.attrs.title ? (
             <figcaption>{node.attrs.title}</figcaption>
@@ -223,6 +227,8 @@ function renderNode(node: ContentNode, key: string, options: ModuleContentOption
           src={src}
           alt={typeof node.attrs?.alt === 'string' ? node.attrs.alt : ''}
           loading="lazy"
+          width={width}
+          height={height}
         />
         {typeof node.attrs?.title === 'string' && node.attrs.title ? (
           <figcaption>{node.attrs.title}</figcaption>
@@ -249,11 +255,15 @@ function PrivateModuleImage({
   attachmentId,
   fallbackSrc,
   alt,
+  width,
+  height,
 }: {
   courseId: string
   attachmentId: string
   fallbackSrc: string | null
   alt: string
+  width?: number | undefined
+  height?: number | undefined
 }) {
   const [src, setSrc] = useState(fallbackSrc)
   useEffect(() => {
@@ -269,7 +279,11 @@ function PrivateModuleImage({
       active = false
     }
   }, [attachmentId, courseId])
-  return src ? <img src={src} alt={alt} loading="lazy" /> : <span>Image unavailable.</span>
+  return src ? (
+    <img src={src} alt={alt} loading="lazy" width={width} height={height} />
+  ) : (
+    <span>Image unavailable.</span>
+  )
 }
 
 export function ModuleContent({
